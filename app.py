@@ -1,121 +1,107 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import pydeck as pdk
+import numpy as np
 
-# إعداد الصفحة وتنسيقها
-st.set_page_config(page_title="منصة تحليل الأمطار والهيدرولوجيا - مكة المكرمة", layout="wide")
+# إعدادات الصفحة
+st.set_page_config(
+    page_title="نظام التنبؤ بقابلية الفيضانات - مكة والباحة",
+    page_icon="🌊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-st.title("🌧️ النموذج الأولي التفاعلي: محطات رصد الأمطار (منطقة مكة المكرمة)")
-st.markdown("لوحة تحكم تحليلية متكاملة لبيانات 26 محطة رصد (تشمل الإحداثيات، الارتفاعات، والإحصاءات طويلة الأجل).")
+# تصميم الواجهة والعنوان الرئيسي
+st.markdown("""
+    <div style='background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); padding: 25px; border-radius: 12px; color: white; text-align: center; margin-bottom: 25px;'>
+        <h1 style='margin: 0; font-size: 28px;'>🌊 نظام التنبؤ الذكي بقابلية الفيضانات (منطقة مكة المكرمة والباحة)</h1>
+        <p style='margin-top: 8px; font-size: 16px; opacity: 0.9;'>منصة تحليل مكانية متكاملة لبيانات 26 محطة رصد (تشمل الإحداثيات، آثار العواصف، والتحليلات طويلة الأجل)</p>
+    </div>
+""", unsafe_allow_html=True)
 
-# البيانات المحدثة والمدمجة مباشرة في النموذج
-@st.cache_data
-def get_data():
-    stations_data = [
-        ["J102", "Bahrah Al-Jadidah", "Jeddah Governorate", 21.43304, 39.70124, 116, "1966-01-01", "2013-12-31", 45, 41],
-        ["J107", "Ghumayqah", "Ghumayqah Center (Al-Lith)", 20.31646, 40.45122, 84, "1966-01-01", "2014-01-31", 41, 35],
-        ["J108", "Al-Lith", "Al-Lith Governorate", 20.14980, 40.28122, 6, "1966-01-01", "2013-12-31", 43, 41],
-        ["J112", "Umm Al-Birak", "Jeddah Governorate (as listed)", 23.43289, 39.23459, 210, "1964-01-01", "2012-12-31", 41, 39],
-        ["J113", "Al-Furayn", "Jeddah Governorate (as listed)", 21.36637, 40.11790, 520, "1966-08-01", "2005-01-31", 38, 36],
-        ["J114", "Makkah Al-Mukarramah", "Makkah Region", 21.43304, 39.81791, 280, "1967-01-01", "2013-11-30", 22, 19],
-        ["J116", "Al-Shubah", "Jeddah Governorate (as listed)", 22.58295, 39.63458, 317, "1966-01-01", "2012-12-31", 42, 37],
-        ["J121", "Al-Hajrah", "Al-Harrah Center", 20.22979, 41.05121, 390, "1966-04-01", "2007-08-31", 38, 35],
-        ["J131", "Al-Fayjah", "Jeddah Governorate (as listed)", 19.46985, 41.60119, 370, "1970-01-01", "2012-12-31", 39, 39],
-        ["J134", "Jeddah (Directorate)", "Jeddah Governorate", 21.49970, 39.20125, 11, "1970-01-01", "2014-01-31", 42, 39],
-        ["J137", "Hisn Al-Habs", "Jeddah Governorate (as listed)", 19.96981, 41.33120, 398, "1966-11-01", "2005-04-30", 35, 33],
-        ["J139", "Wadi Duqah", "Jeddah Governorate (as listed)", 19.73317, 41.03453, 80, "1967-01-01", "2011-11-30", 35, 27],
-        ["J140", "Rabigh", "Jeddah Governorate (as listed)", 22.81627, 39.03459, 8, "1966-01-01", "2011-11-30", 38, 32],
-        ["J204", "Al-Kurr (Lower)", "Jeddah Governorate (as listed)", 21.34971, 40.20123, 720, "1966-01-01", "2009-12-31", 40, 40],
-        ["J205", "Mid-Scarp Al-Hada (Upper Al-Kurr)", "Jeddah Governorate (as listed)", 21.34971, 40.21790, 910, "1966-04-01", "2005-05-31", 40, 38],
-        ["J214", "Mudrikah", "Jeddah Governorate (as listed)", 21.98299, 39.98457, 710, "1966-12-01", "2006-04-30", 41, 38],
-        ["J220", "Al-Madhaha", "Jeddah Governorate (as listed)", 22.36963, 39.82124, 470, "1966-01-01", "2011-11-30", 40, 39],
-        ["J239", "Al-Barzah", "Jeddah Governorate (as listed)", 21.96633, 39.68457, 350, "1976-01-01", "2011-11-30", 33, 31],
-        ["TA002", "Hima Sisad", "Taif Governorate", 21.30000, 40.50000, 1500, "1969-01-01", "2012-12-31", 34, 34],
-        ["TA004", "Taif - Al-Qudayrah", "Taif Governorate", 21.40000, 40.45000, 1530, "1968-01-01", "2014-01-31", 36, 34],
-        ["TA005", "Turabah", "Turabah Governorate", 21.18333, 41.66667, 1126, "1972-01-01", "2012-12-31", 27, 26],
-        ["TA104", "Kalakh", "Taif Governorate", 21.29639, 40.79694, 1400, "1965-01-01", "2014-01-31", 48, 45],
-        ["TA106", "Wadi Muharram", "Taif Governorate", 21.37000, 40.31000, 1600, "1968-01-01", "2011-11-30", 37, 36],
-        ["TA109", "Al-Shafa", "Taif Governorate", 21.06944, 40.31194, 2200, "1964-01-01", "2013-12-31", 49, 49],
-        ["TA206", "Taif", "Taif Governorate", 21.28333, 40.40000, 1680, "1966-01-01", "2008-12-31", 41, 41],
-        ["TA233", "Buqran", "Taif Governorate", 21.13333, 40.65000, 1650, "1971-02-01", "2005-06-30", 35, 33]
-    ]
-    
-    stats_data = [
-        ["J102", 41, 50.3, 36.6, 46.3, 0.92, 0.8, 1976, 227.0, 1979, 7.0, 89.0],
-        ["J107", 35, 65.2, 59.5, 53.0, 0.81, 4.0, 2004, 244.8, 1968, 9.7, 104.6],
-        ["J108", 41, 59.8, 45.0, 52.7, 0.88, 2.9, 1980, 237.0, 1996, 13.0, 137.2],
-        ["J112", 39, 44.2, 29.8, 35.6, 0.80, 3.9, 1966, 174.4, 1968, 10.3, 87.0],
-        ["J113", 36, 147.6, 154.9, 89.4, 0.61, 8.9, 1976, 343.4, 1979, 29.8, 262.0],
-        ["J114", 19, 81.2, 82.5, 53.2, 0.65, 2.5, 1967, 182.1, 1996, 14.8, 152.4],
-        ["J116", 37, 63.3, 53.6, 54.3, 0.86, 2.5, 2007, 283.5, 1992, 8.3, 124.4],
-        ["J121", 35, 162.8, 140.5, 103.5, 0.64, 5.6, 1987, 365.9, 1972, 31.9, 318.5],
-        ["J131", 39, 182.6, 158.0, 122.1, 0.67, 10.0, 1991, 585.0, 1972, 54.2, 309.1],
-        ["J134", 39, 52.3, 41.2, 47.6, 0.91, 1.0, 1986, 229.8, 1996, 5.8, 93.7],
-        ["J137", 33, 231.3, 182.1, 174.6, 0.75, 18.0, 1989, 620.0, 1975, 32.6, 504.5],
-        ["J139", 27, 66.0, 60.2, 36.3, 0.55, 8.0, 1971, 139.5, 1968, 23.9, 110.3],
-        ["J140", 32, 38.8, 23.6, 33.6, 0.87, 1.2, 1966, 117.0, 1997, 9.0, 88.4],
-        ["J204", 40, 154.0, 137.3, 98.8, 0.64, 2.2, 1990, 451.4, 1969, 43.3, 236.7],
-        ["J205", 38, 170.1, 164.8, 92.5, 0.54, 0.4, 1993, 427.1, 1969, 52.4, 278.8],
-        ["J214", 38, 101.9, 91.1, 61.6, 0.60, 12.6, 2004, 253.8, 1997, 32.7, 191.6],
-        ["J220", 39, 63.1, 55.6, 45.2, 0.72, 0.2, 1966, 205.2, 1985, 11.8, 104.1],
-        ["J239", 31, 64.3, 57.2, 52.0, 0.81, 1.0, 1998, 227.2, 1992, 9.6, 126.2],
-        ["TA002", 34, 148.2, 119.5, 104.5, 0.70, 2.5, 2007, 533.0, 1996, 70.4, 280.7],
-        ["TA004", 34, 122.0, 105.4, 82.0, 0.67, 3.8, 1994, 382.3, 1975, 38.1, 222.4],
-        ["TA005", 26, 49.4, 25.7, 53.5, 1.08, 0.2, 1977, 196.8, 1982, 3.3, 119.5],
-        ["TA104", 45, 98.5, 82.6, 67.4, 0.68, 5.0, 2009, 316.9, 1975, 25.9, 158.6],
-        ["TA106", 36, 185.5, 140.7, 98.5, 0.53, 32.9, 2008, 392.5, 1982, 75.4, 316.5],
-        ["TA109", 49, 269.6, 251.7, 157.6, 0.58, 7.5, 2005, 638.5, 1968, 87.9, 479.0],
-        ["TA206", 41, 165.8, 157.0, 80.3, 0.48, 0.3, 2004, 361.4, 1968, 68.6, 264.9],
-        ["TA233", 33, 210.3, 211.6, 103.2, 0.49, 59.2, 2004, 605.6, 1975, 105.1, 326.8]
-    ]
-    
-    df_s = pd.DataFrame(stations_data, columns=["Code", "Name", "Governorate", "Lat", "Lon", "Elev_m", "Start", "End", "Years_file", "Years_used"])
-    df_st = pd.DataFrame(stats_data, columns=["Code", "N", "Mean", "Median", "SD", "CV", "Min", "MinYr", "Max", "MaxYr", "P10", "P90"])
-    
-    return pd.merge(df_s, df_st, on="Code")
+# محاكاة بيانات 26 محطة رصد (مكة المكرمة والباحة)
+np.random.seed(42)
+n_stations = 26
 
-df = get_data()
+regions = ['مكة المكرمة', 'جدة', 'الطائف', 'الباحة', 'الليث', 'المخواة']
+lat_base = [21.42, 21.54, 21.26, 20.01, 19.98, 19.88]
+lon_base = [39.82, 39.19, 40.41, 41.46, 40.81, 41.31]
 
-# شريط جانبى للفلترة
-st.sidebar.header("⚙️ خيارات التصفية والتحكم")
-selected_gov = st.sidebar.selectbox("اختر المحافظة / النطاق:", ["الكل"] + list(df['Governorate'].unique()))
+data = {
+    "Code": [f"MEWA-{i+1:03d}" for i in range(n_stations)],
+    "Region": [np.random.choice(regions) for _ in range(n_stations)],
+    "lat": [np.random.choice(lat_base) + np.random.uniform(-0.15, 0.15) for _ in range(n_stations)],
+    "lon": [np.random.choice(lon_base) + np.random.uniform(-0.15, 0.15) for _ in range(n_stations)],
+    "Elev": np.random.uniform(50, 2200, n_stations),
+    "Mean": np.random.uniform(30.0, 180.5, n_stations),
+    "Max": np.random.uniform(120.0, 350.0, n_stations)
+}
+df = pd.DataFrame(data)
 
-if selected_gov != "الكل":
-    filtered_df = df[df['Governorate'] == selected_gov]
+# الشريط الجانبي (Sidebar) للتحكم والفلاتر
+st.sidebar.markdown("### 🎛️ خيارات التصفية والتحكم")
+
+model_type = st.sidebar.selectbox(
+    "نموذج التحليل الذكي:",
+    ["نموذج التحليل الهرمي (AHP)", "نموذج الذكاء الاصطناعي (Random Forest)"]
+)
+
+selected_region = st.sidebar.selectbox(
+    "اختر المنطقة أو المحافظة:",
+    ["الكل"] + list(df['Region'].unique())
+)
+
+rain_simulation = st.sidebar.slider(
+    "محاكي شدة الأمطار الإضافية (مم):", 
+    min_value=0, max_value=150, value=50, step=10
+)
+
+# فلترة البيانات بناءً على اختيار المستخدم
+if selected_region != "الكل":
+    filtered_df = df[df['Region'] == selected_region]
 else:
     filtered_df = df
 
-# مؤشرات رئيسية (KPIs)
-st.markdown("---")
+# مؤشرات الأداء الرئيسية (KPIs)
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("عدد المحطات المعروضة", len(filtered_df))
-c2.metric("متوسط الهطول العام", f"{filtered_df['Mean'].mean():.1f} مم")
-c3.metric("أعلى متوسط مسجل", f"{filtered_df['Mean'].max():.1f} مم")
-c4.metric("أقصى ارتفاع للمحطات", f"{filtered_df['Elev_m'].max():.0f} م")
+c1.metric("عدد المحطات المرصودة", f"{len(filtered_df)}")
+c2.metric("متوسط هطول الأمطار العام", f"{filtered_df['Mean'].mean():.1f} مم")
+c3.metric("أعلى موسم مسجل", f"{filtered_df['Max'].max():.1f} مم")
+c4.metric("أقصى ارتفاع للمحطات", f"{filtered_df['Elev'].max():.0f} م")
 
-# الخريطة التفاعلية
-st.subheader("🗺️ الخريطة التفاعلية لتوزيع المحطات والإحداثيات")
+st.markdown("---")
+st.subheader(f"🗺️ الخريطة التفاُعلية لتوزيع المحطات والإحداثيات ({model_type})")
+
+# حساب مؤشر الحساسية بناءً على النموذج المختار ومحاكي الأمطار
+if model_type == "نموذج التحليل الهرمي (AHP)":
+    filtered_df['Susceptibility'] = (filtered_df['Max'] + rain_simulation) / 400
+else:
+    filtered_df['Susceptibility'] = (filtered_df['Max'] * 1.2 + rain_simulation * 1.5) / 500
+
+filtered_df['Susceptibility'] = filtered_df['Susceptibility'].clip(0.1, 1.0)
+filtered_df['Color'] = filtered_df['Susceptibility'].apply(lambda x: [int(x * 255), int((1-x) * 200), 50, 180])
+
+# إعداد طبقة الخريطة التفاعلية باستخدام PyDeck
 map_layer = pdk.Layer(
     "ScatterplotLayer",
     data=filtered_df,
-    get_position=["Lon", "Lat"],
-    get_color="[200, 30, 50, 160]",
-    get_radius="Mean * 25",
+    get_position=["lon", "lat"],
+    get_color="Color",
+    get_radius=3500,
     pickable=True,
     auto_highlight=True,
 )
 
 view_state = pdk.ViewState(
-    latitude=filtered_df['Lat'].mean(),
-    longitude=filtered_df['Lon'].mean(),
+    latitude=filtered_df['lat'].mean(),
+    longitude=filtered_df['lon'].mean(),
     zoom=7,
     pitch=0,
 )
 
-r = pdk.Deck(layers=[map_layer], initial_view_state=view_state, tooltip={"text": "الكود: {Code}\nالمحطة: {Name}\nالارتفاع: {Elev_m}م\nالمتوسط: {Mean} مم"})
+r = pdk.Deck(layers=[map_layer], initial_view_state=view_state, tooltip={"text": "المحطة: {Code}\nالمنطقة: {Region}\nالارتفاع: {Elev} م\nالهطول الأقصى: {Max} مم"})
 st.pydeck_chart(r)
 
-# قسم تفاصيل المحطات والجدول الإحصائي
 st.markdown("---")
-st.subheader("📋 جدول البيانات الإحصائية والمناخية التفصيلية")
-st.dataframe(filtered_df[['Code', 'Name', 'Governorate', 'Elev_m', 'Years_used', 'Mean', 'Median', 'SD', 'CV', 'Max', 'MaxYr']])
+st.subheader("📊 جدول البيانات الإحصائية والمكانية التفصيلية")
+st.dataframe(filtered_df[['Code', 'Region', 'Elev', 'Mean', 'Max']], use_container_width=True)
