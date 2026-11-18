@@ -1,163 +1,187 @@
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
 import numpy as np
 
-# إعدادات الصفحة بنمط الداكن (Dark Theme)
+# إعدادات الصفحة بنمط الداكن (Dark Mode)
 st.set_page_config(
-    page_title="منصة رصد - لوحة تحكم السيول والطقس",
+    page_title="RASD Dashboard - لوحة التحكم الهندسية",
     page_icon="🌊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# تخصيص التصميم الداكن الفاخر
+# تخصيص التصميم الداكن الفاخر المطابق لستايل منصة ثروة الهندسية
 st.markdown("""
     <style>
     .stApp {
         background-color: #0b131b;
         color: #e0e0e0;
     }
-    .metric-card {
+    /* الشريط العلوي الاحترافي */
+    .top-nav {
+        background: #0f1c24;
+        border: 1px solid #192a38;
+        padding: 15px 25px;
+        border-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .top-nav h3 {
+        color: #30d5c8;
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    .nav-links span {
+        margin-left: 20px;
+        color: #8899a6;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .nav-links span.active {
+        color: #ffffff;
+        font-weight: bold;
+        border-bottom: 2px solid #30d5c8;
+        padding-bottom: 4px;
+    }
+    /* كروت المؤشرات العلوية */
+    .kpi-box {
         background-color: #121e2b;
-        border: 1px solid #1e2d3d;
+        border: 1px solid #1a2c3d;
         padding: 18px;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        margin-bottom: 15px;
     }
-    .main-header {
-        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-        padding: 25px;
-        border-radius: 12px;
-        color: white;
-        text-align: center;
-        border: 1px solid #1e3a4a;
-        margin-bottom: 25px;
+    .kpi-title {
+        color: #8899a6;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    .kpi-value {
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: bold;
+    }
+    .kpi-sub {
+        color: #30d5c8;
+        font-size: 11px;
+        margin-top: 5px;
+    }
+    /* بطاقة كشف الحالات والإنذار */
+    .alert-box {
+        background-color: #0f2422;
+        border: 1px solid #163d38;
+        padding: 20px;
+        border-radius: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# الترويسة الرئيسية
+# الشريط العلوي للمنصة (Top Navbar)
 st.markdown("""
-    <div class='main-header'>
-        <h1 style='margin: 0; font-size: 26px; color: #ffffff;'>🌊 RASD: لوحة التحكم الذكية لمراقبة الطقس والفيضانات</h1>
-        <p style='margin-top: 5px; font-size: 15px; color: #a0aec0;'>منصة تحليل مكانية متكاملة لبيانات 26 محطة رصد (مكة المكرمة والباحة)</p>
+    <div class='top-nav'>
+        <div>
+            <h3>🌊 THARWA / RASD PLATFORM</h3>
+        </div>
+        <div class='nav-links'>
+            <span class='active'>Overview</span>
+            <span>Trends</span>
+            <span>Assets</span>
+            <span>Settings</span>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
-# توليد بيانات المحطات
-np.random.seed(42)
-n_stations = 26
+# الشريط الجانبي للتحكم والمحاكاة
+st.sidebar.markdown("### 🎛️ إعدادات النموذج والمحاكاة")
+model_choice = st.sidebar.selectbox("نموذج التحليل الذكي:", ["نموذج التحليل الهرمي (AHP)", "نموذج الذكاء الاصطناعي (Random Forest)"])
+rain_sim = st.sidebar.slider("محاكي شدة الأمطار الإضافية (مم):", 0, 150, 45, 5)
 
-regions = ['مكة المكرمة', 'جدة', 'الطائف', 'الباحة', 'الليث', 'المخواة', 'القنفذة']
-lat_base = [21.42, 21.54, 21.26, 20.01, 19.98, 19.88, 20.12]
-lon_base = [39.82, 39.19, 40.41, 41.46, 40.81, 41.31, 41.07]
-
-data = {
-    "Code": [f"MEWA-{i+1:03d}" for i in range(n_stations)],
-    "Region": [np.random.choice(regions) for _ in range(n_stations)],
-    "lat": [np.random.choice(lat_base) + np.random.uniform(-0.12, 0.12) for _ in range(n_stations)],
-    "lon": [np.random.choice(lon_base) + np.random.uniform(-0.12, 0.12) for _ in range(n_stations)],
-    "Base_Rain": np.random.uniform(15, 85, n_stations),
-}
-df = pd.DataFrame(data)
-
-# الشريط الجانبي (Sidebar)
-st.sidebar.markdown("### 🎛️ خيارات لوحة التحكم")
-warning_model = st.sidebar.selectbox(
-    "نموذج التنبؤ والتحليل:",
-    ["نموذج التحليل الهرمي (AHP)", "نموذج الذكاء الاصطناعي (Random Forest)"]
-)
-
-selected_gov = st.sidebar.selectbox(
-    "تصفية حسب المنطقة / المحافظة:",
-    ["جميع المحافظات"] + list(df['Region'].unique())
-)
-
-rain_forecast = st.sidebar.slider(
-    "محاكي كميات الأمطار الإضافية (مم):", 
-    min_value=0, max_value=200, value=40, step=10
-)
-
-# تصفية البيانات
-if selected_gov != "جميع المحافظات":
-    filtered_df = df[df['Region'] == selected_gov].copy()
-else:
-    filtered_df = df.copy()
-
-# الحسابات التنبؤية للطقس
-if warning_model == "نموذج التحليل الهرمي (AHP)":
-    filtered_df['Predicted_Rain'] = filtered_df['Base_Rain'] + (rain_forecast * 0.75)
-else:
-    filtered_df['Predicted_Rain'] = filtered_df['Base_Rain'] + (rain_forecast * 1.25)
-
-# تحديد حالة الطقس والألوان
-def get_weather_status(rain):
-    if rain < 55:
-        return "حالة مستقرة (آمنة)", [30, 144, 255, 200]    # أزرق
-    elif rain < 95:
-        return "تنبيه (أمطار متوسطة)", [255, 191, 0, 220] # أصفر
-    elif rain < 145:
-        return "تحذير (أمطار غزيرة)", [255, 100, 0, 230]  # برتقالي
-    else:
-        return "إنذار أحمر (سيول خطرة)", [220, 20, 60, 255] # أحمر قاني
-
-status_results = filtered_df['Predicted_Rain'].apply(get_weather_status)
-filtered_df['Status'] = [s[0] for s in status_results]
-filtered_df['Color'] = [s[1] for s in status_results]
-filtered_df['Radius'] = filtered_df['Predicted_Rain'].apply(lambda x: max(3500, float(x) * 110))
-
-# مؤشرات أداء رئيسية (KPI Cards)
+# صف المؤشرات العلوي (4 كروت متجاورة تماماً مثل الصورة)
 col1, col2, col3, col4 = st.columns(4)
+
 with col1:
-    st.markdown(f"""<div class='metric-card'><h4>محطات المراقبة</h4><h2>{len(filtered_df)}</h2><span style='color:#30d5c8; font-size:12px;'>● متصلة بالشبكة</span></div>""", unsafe_allow_html=True)
+    st.markdown("""
+        <div class='kpi-box'>
+            <div class='kpi-title'>1 Model prediction</div>
+            <div class='kpi-value'>1,394 <span style='font-size:13px; color:#8899a6;'>mm/L</span></div>
+            <div class='kpi-sub'>Model estimate (AHP/RF)</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 with col2:
-    st.markdown(f"""<div class='metric-card'><h4>متوسط الأمطار المتوقعة</h4><h2>{filtered_df['Predicted_Rain'].mean():.1f} مم</h2><span style='color:#a0aec0; font-size:12px;'>حسب النموذج الحالي</span></div>""", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class='kpi-box'>
+            <div class='kpi-title'>🌡️ Water Temperature</div>
+            <div class='kpi-value'>{42.0 + (rain_sim*0.02):.1f} °C</div>
+            <div class='kpi-sub'>Sensor reading</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 with col3:
-    st.markdown(f"""<div class='metric-card'><h4>أقصى هطول مرصود</h4><h2>{filtered_df['Predicted_Rain'].max():.1f} مم</h2><span style='color:#ff6400; font-size:12px;'>أعلى قراءة للمحطات</span></div>""", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class='kpi-box'>
+            <div class='kpi-title'>⚡ Flow Velocity (EC)</div>
+            <div class='kpi-value'>{2.0 + (rain_sim*0.01):.1f} <span style='font-size:13px; color:#8899a6;'>m/s</span></div>
+            <div class='kpi-sub'>Sensor reading</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 with col4:
-    red_alerts = len(filtered_df[filtered_df['Status'].str.contains('إنذار أحمر|تحذير')])
-    alert_color = "#dc143c" if red_alerts > 0 else "#30d5c8"
-    alert_text = "مستوى خطورة مرتفع" if red_alerts > 0 else "وضع آمن ومستقر"
-    st.markdown(f"""<div class='metric-card'><h4>حالة الإنذارات الحرجة</h4><h2>{red_alerts} محطات</h2><span style='color:{alert_color}; font-size:12px;'>{alert_text}</span></div>""", unsafe_allow_html=True)
+    status_text = "Within limit" if rain_sim < 90 else "Critical Alert"
+    status_color = "#30d5c8" if rain_sim < 90 else "#ff4d4d"
+    st.markdown(f"""
+        <div class='kpi-box'>
+            <div class='kpi-title'>📍 Threshold Status</div>
+            <div class='kpi-value' style='color:{status_color};'>{status_text}</div>
+            <div class='kpi-sub'>Based on model estimate</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+# الصف الثاني: قسم التحليل المكاني والذكاء الاصطناعي للكشف عن الحالات
+col_left, col_right = st.columns([2, 1])
 
-# الخريطة والتحليلات
-st.subheader(f"🗺️ خريطة الإنذار المبكر التفاعلية ({warning_model})")
+with col_left:
+    st.markdown("""
+        <div class='kpi-box'>
+            <h4 style='color:#ffffff; margin-top:0; font-size:16px;'>🗺️ Flood & Watershed Intelligence / 3D View</h4>
+            <p style='color:#8899a6; font-size:13px;'>تحليل النطاق الجغرافي لمحطات مكة المكرمة والباحة (26 محطة رصد)</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # محاكاة خريطة البيانات عبر جدول هندسي تفصيلي متناسق مع الستايل الداكن
+    np.random.seed(42)
+    stations_data = pd.DataFrame({
+        "Station Code": [f"MEWA-{i+1:03d}" for i in range(5)],
+        "Region": ["مكة المكرمة", "جدة", "الطائف", "الباحة", "الليث"],
+        "Rainfall (mm)": [45.2 + rain_sim, 88.5 + rain_sim*1.2, 112.0 + rain_sim*1.5, 34.0 + rain_sim, 95.0 + rain_sim],
+        "Status": ["Stable", "Warning", "Critical Alert", "Stable", "Warning"]
+    })
+    st.dataframe(stations_data, use_container_width=True)
+
+with col_right:
+    st.markdown("""
+        <div class='alert-box'>
+            <div style='color:#30d5c8; font-size:12px; font-weight:bold;'>2 Anomaly result</div>
+            <h4 style='color:#ffffff; margin-top:5px; font-size:16px;'>🟢 Normal & Monitored</h4>
+            <p style='color:#8899a6; font-size:12px; line-height:1.5;'>Current sensor data is consistent with expected hydrological patterns.</p>
+            <hr style='border-color: #1a3d38; margin: 12px 0;'>
+            <div style='color:#8899a6; font-size:11px;'>Leak/Spill status: <b>Active Monitoring</b></div>
+            <div style='color:#30d5c8; font-size:11px; margin-top:5px;'>Model active: <b>{}</b></div>
+        </div>
+    """.format(model_choice), unsafe_allow_html=True)
+
+# الصف الثالث: الرسم البياني الزمني المتطور (Time-series chart)
 st.markdown("""
-* **مفتاح دلالة الألوان:** 
-  <span style='color:#1E90FF; font-weight:bold;'>■ أزرق (حالة مستتبة وآمنة)</span> | 
-  <span style='color:#FFBF00; font-weight:bold;'>■ أصفر (تنبيه)</span> | 
-  <span style='color:#FF6400; font-weight:bold;'>■ برتقالي (تحذير أمطار غزيرة)</span> | 
-  <span style='color:#DC143C; font-weight:bold;'>■ أحمر (إنذار سيول جارفة)</span>
+    <div class='kpi-box'>
+        <h4 style='color:#ffffff; margin-top:0; font-size:16px;'>📈 Prediction History Over Time (سجل التنبؤات والتدفقات الزمنية)</h4>
+    </div>
 """, unsafe_allow_html=True)
 
-map_layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=filtered_df,
-    get_position=["lon", "lat"],
-    get_color="Color",
-    get_radius="Radius",
-    pickable=True,
-    auto_highlight=True,
+# توليد رسم بياني زمني تفاعلي باستخدام Streamlit
+chart_data = pd.DataFrame(
+    np.random.randn(20, 2) * [10, 50] + [500, 1000 + rain_sim * 2],
+    columns=['Historical Avg', 'Predicted Model Flow']
 )
-
-view_state = pdk.ViewState(
-    latitude=filtered_df['lat'].mean() if not filtered_df.empty else 21.42,
-    longitude=filtered_df['lon'].mean() if not filtered_df.empty else 39.82,
-    zoom=7,
-    pitch=15,
-)
-
-r = pdk.Deck(
-    layers=[map_layer], 
-    initial_view_state=view_state, 
-    map_style='mapbox://styles/mapbox/dark-v10',
-    tooltip={"text": "محطة: {Code}\nالمنطقة: {Region}\nالحالة: {Status}\nالأمطار المتوقعة: {Predicted_Rain:.1f} مم"}
-)
-st.pydeck_chart(r)
-
-st.markdown("---")
-st.subheader("📊 جدول البيانات التفصيلية وحالات الطقس للمحطات")
-st.dataframe(filtered_df[['Code', 'Region', 'Base_Rain', 'Predicted_Rain', 'Status']], use_container_width=True)
+st.line_chart(chart_data, color=["#30d5c8", "#ff6b6b"])
