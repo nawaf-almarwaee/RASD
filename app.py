@@ -33,7 +33,6 @@ st.markdown("""
         color: #062038 !important;
         font-weight: 600;
     }
-    /* أزرار الشريط الجانبي والصفحة */
     section[data-testid="stSidebar"] .stButton > button,
     section[data-testid="stSidebar"] .stButton > button * {
         background-color: #071b33 !important;
@@ -95,7 +94,7 @@ st.markdown("""
         border: 1px solid #254b7a;
         border-radius: 10px;
         padding: 10px 16px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
@@ -110,11 +109,18 @@ st.markdown("""
         padding: 4px 10px;
         color: #e2e8f0;
     }
+    .full-region-bar {
+        background-color: #091930;
+        border: 1px solid #1e3a60;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+    }
     .bar-label {
         font-size: 11px;
         font-weight: 700;
         color: #7dd3fc;
-        margin-bottom: 4px;
+        margin-bottom: 5px;
     }
     /* الصف العلوي: 4 كروت أرقام */
     .top-kpi {
@@ -123,7 +129,7 @@ st.markdown("""
         border-radius: 10px;
         padding: 13px 16px;
         box-shadow: 0 3px 10px rgba(2, 8, 20, 0.3);
-        min-height: 118px;
+        min-height: 116px;
     }
     .top-kpi-head {
         display: flex;
@@ -514,7 +520,21 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# شريط الحالة الفورية في الأعلى
+# 2) شريط المناطق التفاعلي بالعرض الكامل في الأعلى
+st.markdown('<div class="full-region-bar"><div class="bar-label">المناطق والمحافظات (نقرة واحدة لتحديث اللوحة والخريطة والإنذار)</div>', unsafe_allow_html=True)
+gov_buttons = ["الكل", "مكة المكرمة", "جدة", "الطائف", "الليث", "القنفذة", "الباحة", "المخواة"]
+g_cols = st.columns(len(gov_buttons))
+for idx_g, g_name in enumerate(gov_buttons):
+    g_sub = sim_all_df if g_name == "الكل" else sim_all_df[sim_all_df["Governorate"] == g_name]
+    g_max = g_sub["Forecast_Rain"].max()
+    dot = "🔴" if g_max >= 120 else ("🟠" if g_max >= 80 else ("🟡" if g_max >= 45 else "🔵"))
+    active_mark = "✦ " if st.session_state.selected_gov == g_name else ""
+    if g_cols[idx_g].button(f"{active_mark}{dot} {g_name}", key=f"gov_btn_{g_name}"):
+        st.session_state.selected_gov = g_name
+        st.rerun()
+st.markdown("</div>", unsafe_allow_html=True)
+
+# شريط الحالة الفورية
 st.markdown(f"""
     <div class="live-strip">
         <div>
@@ -530,71 +550,54 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 2) أزرار التبديل المباشرة في نفس الصفحة
-r1_a, r1_b, r1_c = st.columns([2.2, 1.4, 1.6])
-
-with r1_a:
-    st.markdown('<div class="bar-label">شريط المناطق التفاعلي السريع (نقرة واحدة)</div>', unsafe_allow_html=True)
-    gov_buttons = ["الكل", "مكة المكرمة", "جدة", "الطائف", "الليث", "القنفذة", "الباحة", "المخواة"]
-    g_cols = st.columns(len(gov_buttons))
-    for idx_g, g_name in enumerate(gov_buttons):
-        g_sub = sim_all_df if g_name == "الكل" else sim_all_df[sim_all_df["Governorate"] == g_name]
-        g_max = g_sub["Forecast_Rain"].max()
-        dot = "🔴" if g_max >= 120 else ("🟠" if g_max >= 80 else ("🟡" if g_max >= 45 else "🔵"))
-        active_mark = "✦ " if st.session_state.selected_gov == g_name else ""
-        if g_cols[idx_g].button(f"{active_mark}{dot} {g_name}", key=f"gov_btn_{g_name}"):
-            st.session_state.selected_gov = g_name
-            st.rerun()
-
-with r1_b:
-    st.markdown('<div class="bar-label">النموذج التحليلي</div>', unsafe_allow_html=True)
-    m_col1, m_col2 = st.columns(2)
-    if m_col1.button(("✦ " if model_mode == "Random Forest" else "") + "Random Forest", key="btn_rf"):
+# 3) أزرار التبديل المباشرة للنموذج والأفق والظاهرة والمؤشر
+r2_1, r2_2, r2_3, r2_4 = st.columns([1.2, 1.4, 1.3, 1.3])
+with r2_1:
+    st.markdown('<div class="bar-label">النموذج</div>', unsafe_allow_html=True)
+    m1, m2 = st.columns(2)
+    if m1.button(("✦ " if model_mode == "Random Forest" else "") + "RF", key="btn_rf"):
         st.session_state.model_mode = "Random Forest"
         st.rerun()
-    if m_col2.button(("✦ " if model_mode == "AHP" else "") + "AHP", key="btn_ahp"):
+    if m2.button(("✦ " if model_mode == "AHP" else "") + "AHP", key="btn_ahp"):
         st.session_state.model_mode = "AHP"
         st.rerun()
 
-with r1_c:
+with r2_2:
     st.markdown('<div class="bar-label">الأفق الزمني</div>', unsafe_allow_html=True)
-    h_col1, h_col2, h_col3 = st.columns(3)
-    if h_col1.button(("✦ " if "Nowcasting" in horizon_mode else "") + "Nowcasting", key="btn_now"):
+    h1, h2, h3 = st.columns(3)
+    if h1.button(("✦ " if "Nowcasting" in horizon_mode else "") + "24h", key="btn_now"):
         st.session_state.horizon_mode = "التنبؤ الآني (Nowcasting - 24h)"
         st.rerun()
-    if h_col2.button(("✦ " if "14 Days" in horizon_mode else "") + "14 Days", key="btn_14d"):
+    if h2.button(("✦ " if "14 Days" in horizon_mode else "") + "14d", key="btn_14d"):
         st.session_state.horizon_mode = "التوقعات الممتدة (14 Days)"
         st.rerun()
-    if h_col3.button(("✦ " if "Seasonal" in horizon_mode else "") + "Seasonal", key="btn_seas"):
+    if h3.button(("✦ " if "Seasonal" in horizon_mode else "") + "موسمي", key="btn_seas"):
         st.session_state.horizon_mode = "النماذج الفصلية (Seasonal)"
         st.rerun()
 
-st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-
-r2_a, r2_b = st.columns(2)
-with r2_a:
-    st.markdown('<div class="bar-label">الظاهرة المرصودة</div>', unsafe_allow_html=True)
-    hz_col1, hz_col2 = st.columns(2)
-    if hz_col1.button(("✦ " if "الأمطار" in hazard_type else "") + "الأمطار والسيول", key="btn_hz_rain"):
+with r2_3:
+    st.markdown('<div class="bar-label">الظاهرة</div>', unsafe_allow_html=True)
+    z1, z2 = st.columns(2)
+    if z1.button(("✦ " if "الأمطار" in hazard_type else "") + "سيول", key="btn_hz_rain"):
         st.session_state.hazard_type = "الأمطار الغزيرة والسيول"
         st.rerun()
-    if hz_col2.button(("✦ " if "العواصف" in hazard_type else "") + "العواصف والرياح", key="btn_hz_wind"):
+    if z2.button(("✦ " if "العواصف" in hazard_type else "") + "عواصف", key="btn_hz_wind"):
         st.session_state.hazard_type = "العواصف الرعدية والرياح"
         st.rerun()
 
-with r2_b:
-    st.markdown('<div class="bar-label">مؤشر الخريطة اللونية</div>', unsafe_allow_html=True)
-    ml_col1, ml_col2 = st.columns(2)
-    if ml_col1.button(("✦ " if "الهطول" in map_layer else "") + "الهطول والإنذار", key="btn_ml_rain"):
+with r2_4:
+    st.markdown('<div class="bar-label">مؤشر الخريطة</div>', unsafe_allow_html=True)
+    l1, l2 = st.columns(2)
+    if l1.button(("✦ " if "الهطول" in map_layer else "") + "هطول", key="btn_ml_rain"):
         st.session_state.map_layer = "الهطول والإنذار (مم)"
         st.rerun()
-    if ml_col2.button(("✦ " if "AQI" in map_layer else "") + "AQI جودة الهواء", key="btn_ml_aqi"):
+    if l2.button(("✦ " if "AQI" in map_layer else "") + "AQI", key="btn_ml_aqi"):
         st.session_state.map_layer = "جودة الهواء (AQI)"
         st.rerun()
 
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-# 3) الصف الأول: 4 كروت أرقام
+# 4) الصف الأول: 4 كروت أرقام
 trend_rain_cls = "trend-up" if diff_rain > 2 else ("trend-down" if diff_rain < -2 else "trend-flat")
 trend_rain_lbl = f"↑ +{diff_rain:.1f} mm" if diff_rain > 2 else (f"↓ {diff_rain:.1f} mm" if diff_rain < -2 else "→ 0.0 mm")
 
@@ -657,15 +660,172 @@ if audience_mode.startswith("للفرد"):
         </div>
     """, unsafe_allow_html=True)
 
-# 4) الصف الأوسط: المؤشر الدائري + الخريطة الفاتحة + بطاقة الإنذار
-m_left, m_center, m_right = st.columns([1.05, 2.05, 1.2])
+# 5) الصف الأوسط: خريطة كبيرة وممتدة + مؤشر الخطورة وبطاقة الإنذار
+m_center, m_side = st.columns([2.65, 1.35])
 
-with m_left:
+with m_center:
+    st.markdown(f'<div class="card-box"><div class="card-title">خريطة تفاعلية فاتحة بالتدرج اللوني والمسارات · {map_layer}</div>', unsafe_allow_html=True)
+
+    t_col1, t_col2, t_col3 = st.columns(3)
+    if t_col1.button(("● " if st.session_state.show_terrain else "○ ") + "التضاريس الجبلية", key="btn_l_terr"):
+        st.session_state.show_terrain = not st.session_state.show_terrain
+        st.rerun()
+    if t_col2.button(("● " if st.session_state.show_wadis else "○ ") + "مسار الأودية", key="btn_l_wadi"):
+        st.session_state.show_wadis = not st.session_state.show_wadis
+        st.rerun()
+    if t_col3.button(("● " if st.session_state.show_basins else "○ ") + "الأحواض المائية", key="btn_l_basin"):
+        st.session_state.show_basins = not st.session_state.show_basins
+        st.rerun()
+
+    # تدرج لوني مناخي واسع ومتصل (أزرق -> سماوي -> أصفر -> برتقالي -> أحمر) بدون دوائر عشوائية
+    climate_color_range = [
+        [2, 132, 199],
+        [56, 189, 248],
+        [163, 230, 53],
+        [250, 204, 21],
+        [251, 146, 60],
+        [220, 38, 38]
+    ]
+
+    # بناء شبكة نقاط ناعمة حول المحطات والأحواض لتشكيل سطح لوني متصل يشبه الخرائط المناخية
+    heat_points = []
+    for _, r_item in filtered.iterrows():
+        base_w = float(r_item["Heat_Weight"])
+        elev_boost = min(float(r_item["Elevation_m"]) / 2400.0, 0.25) if st.session_state.show_terrain else 0.0
+        w_main = min(base_w + elev_boost, 1.0)
+        heat_points.append({"lon": float(r_item["lon"]), "lat": float(r_item["lat"]), "w": w_main})
+        for d_lat, d_lon, factor in [
+            (0.16, 0.0, 0.85), (-0.16, 0.0, 0.80),
+            (0.0, 0.18, 0.85), (0.0, -0.18, 0.78),
+            (0.12, 0.14, 0.72), (-0.12, -0.14, 0.72),
+        ]:
+            heat_points.append({
+                "lon": float(r_item["lon"]) + d_lon,
+                "lat": float(r_item["lat"]) + d_lat,
+                "w": max(0.08, min(w_main * factor, 1.0))
+            })
+
+    map_layers = [
+        pdk.Layer(
+            "HeatmapLayer",
+            data=pd.DataFrame(heat_points),
+            get_position=["lon", "lat"],
+            get_weight="w",
+            radius_pixels=120,
+            intensity=1.25,
+            threshold=0.04,
+            color_range=climate_color_range,
+        ),
+        pdk.Layer(
+            "TextLayer",
+            data=filtered,
+            get_position=["lon", "lat"],
+            get_text="Map_Label",
+            get_color="Txt_Color",
+            get_size=13,
+            get_alignment_baseline="'bottom'",
+            background=True,
+            get_background_color=[255, 255, 255, 230],
+            background_padding=[4, 7],
+            pickable=True,
+        )
+    ]
+
+    if st.session_state.show_basins and len(filtered) > 0:
+        basin_rings = [
+            {
+                "basin": r_row["Basin"],
+                "hotspot": r_row["Hotspot"],
+                "path": [
+                    [float(r_row["lon"]) - 0.16, float(r_row["lat"]) - 0.12],
+                    [float(r_row["lon"]) + 0.16, float(r_row["lat"]) - 0.12],
+                    [float(r_row["lon"]) + 0.16, float(r_row["lat"]) + 0.12],
+                    [float(r_row["lon"]) - 0.16, float(r_row["lat"]) + 0.12],
+                    [float(r_row["lon"]) - 0.16, float(r_row["lat"]) - 0.12],
+                ]
+            }
+            for _, r_row in filtered.iterrows()
+        ]
+        map_layers.append(pdk.Layer(
+            "PathLayer",
+            data=basin_rings,
+            get_path="path",
+            get_color=[15, 23, 42, 130],
+            width_min_pixels=1.6,
+            pickable=True,
+        ))
+
+    if st.session_state.show_wadis and len(filtered) > 0:
+        wadi_paths = []
+        for _, r_row in filtered.iterrows():
+            sev_high = r_row["Forecast_Rain"] >= 80
+            w_col = [185, 28, 28, 235] if sev_high else [3, 105, 161, 215]
+            w_px = 4.5 if sev_high else 2.6
+            wadi_paths.append({
+                "basin": r_row["Basin"],
+                "hotspot": r_row["Hotspot"],
+                "arrival": f"{r_row['Arrival_Hours']} س",
+                "w_col": w_col,
+                "w_px": w_px,
+                "path": [
+                    [float(r_row["lon"]) + 0.12, float(r_row["lat"]) + 0.09],
+                    [float(r_row["lon"]), float(r_row["lat"])],
+                    [float(r_row["lon"]) - 0.20, float(r_row["lat"]) - 0.15]
+                ]
+            })
+        map_layers.append(pdk.Layer(
+            "PathLayer",
+            data=wadi_paths,
+            get_path="path",
+            get_color="w_col",
+            get_width="w_px",
+            width_min_pixels=2.2,
+            pickable=True,
+        ))
+
+    deck = pdk.Deck(
+        layers=map_layers,
+        initial_view_state=pdk.ViewState(
+            latitude=float(filtered["lat"].mean()),
+            longitude=float(filtered["lon"].mean()),
+            zoom=7.0,
+            pitch=0,
+        ),
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        tooltip={
+            "html": "<b>{Station}</b> ({Governorate})<br/>الحوض: {Basin}<br/>نقطة حرجة: {Hotspot}<br/>{Alert_Level}<br/>القراءة: <b>{Reading_Str}</b> · وصول السيل: {Arrival_Hours} س",
+            "style": {"backgroundColor": "#091b33", "color": "#ffffff"}
+        }
+    )
+    st.pydeck_chart(deck, use_container_width=True, height=510)
+
+    sim_pct = min(max((rain_add / 180.0) * 100.0, 2.0), 100.0)
+    st.markdown(f"""
+        <div class="legend-strip">
+            <span style="color:#38bdf8;font-weight:700;">■ أزرق: مستقر</span>
+            <span style="color:#a3e635;font-weight:700;">■ أخضر/أصفر: تنبيه مبكر</span>
+            <span style="color:#fb923c;font-weight:700;">■ برتقالي: حيطة وحذر</span>
+            <span style="color:#f87171;font-weight:700;">■ أحمر: إنذار سيول</span>
+        </div>
+        <div style="margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#94b2d6;margin-bottom:4px;">
+                <span>منخفض (مستقر)</span>
+                <span>محاكاة الهطول: +{rain_add} مم ({pct_boost:+d}% · {storm_hours} س)</span>
+                <span>مرتفع (إنذار سيول)</span>
+            </div>
+            <div style="position:relative;height:7px;border-radius:999px;background:linear-gradient(90deg,#38bdf8 0%,#a3e635 35%,#facc15 55%,#fb923c 76%,#ef4444 100%);">
+                <div style="position:absolute;top:-3px;left:calc({sim_pct:.1f}% - 6px);width:13px;height:13px;border-radius:50%;background:#ffffff;border:2px solid #06101e;"></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with m_side:
     st.markdown('<div class="card-box"><div class="card-title">مؤشر الخطورة والقابلية</div>', unsafe_allow_html=True)
     gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=round(avg_risk * 100, 1),
-        number={"suffix": "%", "font": {"size": 25, "color": "#ffffff"}},
+        number={"suffix": "%", "font": {"size": 24, "color": "#ffffff"}},
         gauge={
             "axis": {"range": [0, 100], "tickcolor": "#94b2d6"},
             "bar": {"color": "#38bdf8"},
@@ -679,8 +839,8 @@ with m_left:
         }
     ))
     gauge.update_layout(
-        height=255,
-        margin=dict(l=12, r=12, t=20, b=10),
+        height=215,
+        margin=dict(l=10, r=10, t=15, b=5),
         paper_bgcolor="#0c1c34",
         font={"color": "#e6eef8"}
     )
@@ -688,160 +848,6 @@ with m_left:
     st.markdown(f'<div class="card-sub" style="text-align:center;">الفارق عن الطبيعي: {diff_risk*100:+.1f}% · {source_tag}</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-with m_center:
-    st.markdown(f'<div class="card-box"><div class="card-title">خريطة تفاعلية فاتحة بالقراءات اللونية · {map_layer}</div>', unsafe_allow_html=True)
-
-    t_col1, t_col2, t_col3 = st.columns(3)
-    if t_col1.button(("● " if st.session_state.show_terrain else "○ ") + "التضاريس الجبلية", key="btn_l_terr"):
-        st.session_state.show_terrain = not st.session_state.show_terrain
-        st.rerun()
-    if t_col2.button(("● " if st.session_state.show_wadis else "○ ") + "مسار الأودية", key="btn_l_wadi"):
-        st.session_state.show_wadis = not st.session_state.show_wadis
-        st.rerun()
-    if t_col3.button(("● " if st.session_state.show_basins else "○ ") + "الأحواض المائية", key="btn_l_basin"):
-        st.session_state.show_basins = not st.session_state.show_basins
-        st.rerun()
-
-    color_range = [
-        [56, 189, 248],
-        [125, 211, 252],
-        [250, 204, 21],
-        [251, 146, 60],
-        [239, 68, 68]
-    ]
-
-    map_layers = [
-        pdk.Layer(
-            "HeatmapLayer",
-            data=filtered,
-            get_position=["lon", "lat"],
-            get_weight="Heat_Weight",
-            radius_pixels=65,
-            intensity=1.2,
-            threshold=0.05,
-            color_range=color_range,
-        ),
-        pdk.Layer(
-            "TextLayer",
-            data=filtered,
-            get_position=["lon", "lat"],
-            get_text="Map_Label",
-            get_color="Txt_Color",
-            get_size=13,
-            get_alignment_baseline="'bottom'",
-            background=True,
-            get_background_color=[255, 255, 255, 225],
-            background_padding=[3, 6],
-            pickable=True,
-        )
-    ]
-
-    if st.session_state.show_terrain and len(filtered) > 0:
-        high_elev = filtered[filtered["Elevation_m"] >= 600.0]
-        if len(high_elev) > 0:
-            map_layers.append(pdk.Layer(
-                "ScatterplotLayer",
-                data=high_elev,
-                get_position=["lon", "lat"],
-                get_fill_color=[120, 113, 108, 65],
-                get_line_color=[87, 83, 78, 180],
-                line_width_min_pixels=1.5,
-                stroked=True,
-                filled=True,
-                get_radius="Elevation_m * 11",
-                pickable=True,
-            ))
-
-    if st.session_state.show_basins and len(filtered) > 0:
-        basin_rings = [
-            {
-                "basin": r_row["Basin"],
-                "hotspot": r_row["Hotspot"],
-                "path": [
-                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) - 0.10],
-                    [float(r_row["lon"]) + 0.14, float(r_row["lat"]) - 0.10],
-                    [float(r_row["lon"]) + 0.14, float(r_row["lat"]) + 0.10],
-                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) + 0.10],
-                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) - 0.10],
-                ]
-            }
-            for _, r_row in filtered.iterrows()
-        ]
-        map_layers.append(pdk.Layer(
-            "PathLayer",
-            data=basin_rings,
-            get_path="path",
-            get_color=[3, 105, 161, 130],
-            width_min_pixels=1.5,
-            pickable=True,
-        ))
-
-    if st.session_state.show_wadis and len(filtered) > 0:
-        wadi_paths = []
-        for _, r_row in filtered.iterrows():
-            sev_high = r_row["Forecast_Rain"] >= 80
-            w_col = [220, 38, 38, 235] if sev_high else [2, 132, 199, 210]
-            w_px = 4.5 if sev_high else 2.5
-            wadi_paths.append({
-                "basin": r_row["Basin"],
-                "hotspot": r_row["Hotspot"],
-                "arrival": f"{r_row['Arrival_Hours']} س",
-                "w_col": w_col,
-                "w_px": w_px,
-                "path": [
-                    [float(r_row["lon"]) + 0.10, float(r_row["lat"]) + 0.08],
-                    [float(r_row["lon"]), float(r_row["lat"])],
-                    [float(r_row["lon"]) - 0.18, float(r_row["lat"]) - 0.14]
-                ]
-            })
-        map_layers.append(pdk.Layer(
-            "PathLayer",
-            data=wadi_paths,
-            get_path="path",
-            get_color="w_col",
-            get_width="w_px",
-            width_min_pixels=2.0,
-            pickable=True,
-        ))
-
-    deck = pdk.Deck(
-        layers=map_layers,
-        initial_view_state=pdk.ViewState(
-            latitude=float(filtered["lat"].mean()),
-            longitude=float(filtered["lon"].mean()),
-            zoom=6.8,
-            pitch=0,
-        ),
-        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        tooltip={
-            "html": "<b>{Station}</b> ({Governorate})<br/>الحوض: {Basin}<br/>نقطة حرجة: {Hotspot}<br/>{Alert_Level}<br/>القراءة: <b>{Reading_Str}</b> · وصول السيل: {Arrival_Hours} س",
-            "style": {"backgroundColor": "#091b33", "color": "#ffffff"}
-        }
-    )
-    st.pydeck_chart(deck, use_container_width=True)
-
-    sim_pct = min(max((rain_add / 180.0) * 100.0, 2.0), 100.0)
-    st.markdown(f"""
-        <div class="legend-strip">
-            <span style="color:#38bdf8;font-weight:700;">■ أزرق: مستقر</span>
-            <span style="color:#facc15;font-weight:700;">■ أصفر: تنبيه</span>
-            <span style="color:#fb923c;font-weight:700;">■ برتقالي: حيطة وحذر</span>
-            <span style="color:#f87171;font-weight:700;">■ أحمر: إنذار سيول</span>
-        </div>
-        <div style="margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#94b2d6;margin-bottom:4px;">
-                <span>منخفض (مستقر)</span>
-                <span>محاكاة الهطول: +{rain_add} مم ({pct_boost:+d}% · {storm_hours} س)</span>
-                <span>مرتفع (إنذار سيول)</span>
-            </div>
-            <div style="position:relative;height:7px;border-radius:999px;background:linear-gradient(90deg,#38bdf8 0%,#facc15 45%,#fb923c 72%,#ef4444 100%);">
-                <div style="position:absolute;top:-3px;left:calc({sim_pct:.1f}% - 6px);width:13px;height:13px;border-radius:50%;background:#ffffff;border:2px solid #06101e;"></div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with m_right:
     has_coastal = any(g in coastal_govs for g in filtered["Governorate"])
     marine_txt = "موج 1.8 م · تيارات ساحلية (جدة/الليث/القنفذة)" if has_coastal else "متابعة الأودية والجريان السطحي"
     st.markdown(f"""
@@ -862,7 +868,7 @@ with m_right:
         </div>
     """, unsafe_allow_html=True)
 
-# 5) الفحص المباشر للمحطة/الوادي + منحنى التوقعات الزمنية ونطاق عدم اليقين + مصفوفة القطاعات
+# 6) الفحص المباشر للمحطة/الوادي + منحنى التوقعات الزمنية ونطاق عدم اليقين + مصفوفة القطاعات
 station_list = filtered["Station"].tolist()
 if st.session_state.picked_station not in station_list:
     st.session_state.picked_station = station_list[0]
