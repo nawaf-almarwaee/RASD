@@ -328,7 +328,236 @@ severe_cnt = int((filtered["Forecast_Rain"] >= 80).sum())
 c1, c2, c3, c4 = st.columns(4)
 if audience_mode.startswith("للفرد"):
     status_txt = "إنذار أحمر/برتقالي" if severe_cnt >= 3 else ("تنبيه أصفر" if severe_cnt > 0 else "مستقر · أزرق")
-    c1.markdown(f"""<div class="top-kpi"><div class="top-kpi-title">حالة المنطقة والإنذار</div><div class="top-kpi-val" style="font-size:19px;color:#7dd3fc;">{status_txt}</div><div class="top-kpi-sub">{hazard_type}</div></div>""", unsafe_allow_html=True)
-    c2.markdown(f"""<div class="top-kpi"><div class="top-kpi-title">متوسط الهطول المتوقع</div><div class="top-kpi-val">{avg_rain:.1f} <span class="top-kpi-unit">mm</span></div><div class="top-kpi-sub">الأعلى: {max_rain:.1f} mm</div></div>""", unsafe_allow_html=True)
-    c3.markdown(f"""<div class="top-kpi"><div class="top-kpi-title">الحرارة والرطوبة</div><div class="top-kpi-val">{filtered["Temp_C"].mean():.1f} <span class="top-kpi-unit">°C</span></div><div class="top-kpi-sub">رطوبة {filtered["Humidity_Pct"].mean():.0f}% · ندى {filtered["Dew_Point_C"].mean():.1f}°C</div></div>""", unsafe_allow_html=True)
+    c1.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">حالة المنطقة والإنذار</div><div class="top-kpi-val" style="font-size:19px;color:#7dd3fc;">{status_txt}</div><div class="top-kpi-sub">{hazard_type}</div></div>""",
+        unsafe_allow_html=True
+    )
+    c2.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">متوسط الهطول المتوقع</div><div class="top-kpi-val">{avg_rain:.1f} <span class="top-kpi-unit">mm</span></div><div class="top-kpi-sub">الأعلى: {max_rain:.1f} mm</div></div>""",
+        unsafe_allow_html=True
+    )
+    c3.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">الحرارة والرطوبة</div><div class="top-kpi-val">{filtered["Temp_C"].mean():.1f} <span class="top-kpi-unit">°C</span></div><div class="top-kpi-sub">رطوبة {filtered["Humidity_Pct"].mean():.0f}% · ندى {filtered["Dew_Point_C"].mean():.1f}°C</div></div>""",
+        unsafe_allow_html=True
+    )
     c4.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">جودة الهواء (AQI)</div><div class="top-kpi-val">{int(filtered["AQI"].mean())} <span class="top-kpi-unit">AQI</span></div><div class="top-kpi-sub">UV: {int(filtered["UV_Index"].mean())} · غبار {filtered["Dust_ugm3"].mean():.0f} µg/m³</div></div>""",
+        unsafe_allow_html=True
+    )
+else:
+    c1.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">الذروة المتوقعة ({model_mode})</div><div class="top-kpi-val">{max_rain:.1f} <span class="top-kpi-unit">mm</span></div><div class="top-kpi-sub">RF: {filtered["Rain_RF"].mean():.1f} mm · AHP: {filtered["Rain_AHP"].mean():.1f} mm</div></div>""",
+        unsafe_allow_html=True
+    )
+    c2.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">مؤشر الحساسية (FSI)</div><div class="top-kpi-val">{avg_risk:.2f}</div><div class="top-kpi-sub">مقياس الخطورة الهيدرولوجية (0–1)</div></div>""",
+        unsafe_allow_html=True
+    )
+    c3.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">الجريان السطحي للأودية</div><div class="top-kpi-val">{filtered["Runoff_m3s"].mean():.1f} <span class="top-kpi-unit">m³/s</span></div><div class="top-kpi-sub">دعم السدود والسيول</div></div>""",
+        unsafe_allow_html=True
+    )
+    c4.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-title">الضغط والرياح والتحذيرات</div><div class="top-kpi-val">{filtered["Pressure_hPa"].mean():.0f} <span class="top-kpi-unit">hPa</span></div><div class="top-kpi-sub">رياح {filtered["Wind_kmh"].mean():.0f} km/h · تحذيرات: {severe_cnt}/{len(filtered)}</div></div>""",
+        unsafe_allow_html=True
+    )
+
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+# 3) الصف الأوسط: المؤشر الدائري + الخريطة الفاتحة اللونية بدون دوائر + بطاقة الإنذار
+m_left, m_center, m_right = st.columns([1.05, 2.05, 1.2])
+
+with m_left:
+    st.markdown('<div class="card-box"><div class="card-title">مؤشر الخطورة والقابلية</div>', unsafe_allow_html=True)
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=round(avg_risk * 100, 1),
+        number={"suffix": "%", "font": {"size": 25, "color": "#ffffff"}},
+        gauge={
+            "axis": {"range": [0, 100], "tickcolor": "#94b2d6"},
+            "bar": {"color": "#38bdf8"},
+            "bgcolor": "#081426",
+            "steps": [
+                {"range": [0, 35], "color": "#0f294a"},
+                {"range": [35, 65], "color": "#2b2514"},
+                {"range": [65, 100], "color": "#3b1720"}
+            ],
+            "threshold": {"line": {"color": "#f87171", "width": 3}, "value": 75}
+        }
+    ))
+    gauge.update_layout(
+        height=255,
+        margin=dict(l=12, r=12, t=20, b=10),
+        paper_bgcolor="#0c1c34",
+        font={"color": "#e6eef8"}
+    )
+    st.plotly_chart(gauge, use_container_width=True)
+    st.markdown(f'<div class="card-sub" style="text-align:center;">المصدر: {source_tag}</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with m_center:
+    st.markdown(f'<div class="card-box"><div class="card-title">خريطة تفاعلية فاتحة بالقراءات اللونية · {map_layer}</div>', unsafe_allow_html=True)
+
+    color_range = [
+        [56, 189, 248],
+        [125, 211, 252],
+        [250, 204, 21],
+        [251, 146, 60],
+        [239, 68, 68]
+    ]
+
+    map_layers = [
+        pdk.Layer(
+            "HeatmapLayer",
+            data=filtered,
+            get_position=["lon", "lat"],
+            get_weight="Heat_Weight",
+            radius_pixels=65,
+            intensity=1.2,
+            threshold=0.05,
+            color_range=color_range,
+        ),
+        pdk.Layer(
+            "TextLayer",
+            data=filtered,
+            get_position=["lon", "lat"],
+            get_text="Map_Label",
+            get_color="Txt_Color",
+            get_size=13,
+            get_alignment_baseline="'bottom'",
+            background=True,
+            get_background_color=[255, 255, 255, 215],
+            background_padding=[3, 6],
+            pickable=True,
+        )
+    ]
+
+    if geojson_file is not None:
+        try:
+            gj_obj = json.load(geojson_file)
+            map_layers.insert(0, pdk.Layer(
+                "GeoJsonLayer",
+                data=gj_obj,
+                stroked=True,
+                filled=True,
+                get_fill_color=[2, 132, 199, 25],
+                get_line_color=[3, 105, 161, 190],
+                line_width_min_pixels=1.8,
+            ))
+        except Exception:
+            st.warning("تعذر قراءة ملف GeoJSON المرفوع.")
+
+    deck = pdk.Deck(
+        layers=map_layers,
+        initial_view_state=pdk.ViewState(
+            latitude=float(filtered["lat"].mean()),
+            longitude=float(filtered["lon"].mean()),
+            zoom=6.8,
+            pitch=0,
+        ),
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        tooltip={
+            "html": "<b>{Station}</b> ({Governorate})<br/>{Alert_Level}<br/>القراءة: <b>{Reading_Str}</b><br/>الهطول: {Forecast_Rain:.1f} mm · الحرارة: {Temp_C:.1f}°C",
+            "style": {"backgroundColor": "#091b33", "color": "#ffffff"}
+        }
+    )
+    st.pydeck_chart(deck, use_container_width=True)
+    st.markdown("""
+        <div class="legend-strip">
+            <span style="color:#38bdf8;font-weight:700;">■ أزرق: مستقر</span>
+            <span style="color:#facc15;font-weight:700;">■ أصفر: تنبيه</span>
+            <span style="color:#fb923c;font-weight:700;">■ برتقالي: حيطة وحذر</span>
+            <span style="color:#f87171;font-weight:700;">■ أحمر: إنذار سيول</span>
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with m_right:
+    top_st = filtered.sort_values("Forecast_Rain", ascending=False).iloc[0]
+    has_coastal = any(g in coastal_govs for g in filtered["Governorate"])
+    marine_txt = "موج 1.8 م · تيارات ساحلية (جدة/الليث/القنفذة)" if has_coastal else "متابعة الأودية والجريان السطحي"
+    st.markdown(f"""
+        <div class="dark-side-card">
+            <div style="font-size:11px;color:#7dd3fc;font-weight:700;">التنبيه اللحظي وحالة الرصد</div>
+            <div style="font-size:16px;font-weight:700;margin-top:5px;">{top_st["Alert_Level"]}</div>
+            <div class="alert-banner">
+                <div style="font-size:12px;font-weight:700;color:#ffffff;">أعلى محطة: {top_st["Station"]} ({top_st["Governorate"]})</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:4px;">{top_st["Advice"]}</div>
+            </div>
+            <div style="font-size:11px;color:#cbd5e1;line-height:1.6;">
+                • <b>البحري والأودية:</b> {marine_txt}<br/>
+                • <b>الفلك:</b> الشروق 06:34 · الغروب 17:42 (أحدب متزايد)
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# 4) الصف السفلي: منحنى التوقعات الزمنية + القطاعات الحيوية
+b_left, b_right = st.columns([2.9, 1.3])
+
+with b_left:
+    st.markdown('<div class="card-box"><div class="card-title">التوقعات الزمنية ومقارنة النماذج (Random Forest vs AHP)</div>', unsafe_allow_html=True)
+    if "Nowcasting" in horizon_mode:
+        x_lbl = [f"+{i*2}h" for i in range(13)]
+    elif "14 Days" in horizon_mode:
+        x_lbl = [f"يوم {i+1}" for i in range(14)]
+    else:
+        x_lbl = ["الشهر 1", "الشهر 2", "الشهر 3", "الشهر 4", "الشهر 5", "الشهر 6"]
+
+    n_pt = len(x_lbl)
+    y_rf = np.round(filtered["Rain_RF"].mean() * (0.72 + 0.14 * np.sin(np.linspace(0, 3.14, n_pt)) + np.linspace(0, 0.25, n_pt)), 1)
+    y_ahp = np.round(filtered["Rain_AHP"].mean() * (0.72 + 0.14 * np.sin(np.linspace(0, 3.14, n_pt)) + np.linspace(0, 0.22, n_pt)), 1)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=y_rf, mode="lines+markers",
+        name="Random Forest (mm)", line=dict(color="#38bdf8", width=3),
+        fill="tozeroy", fillcolor="rgba(56, 189, 248, 0.12)"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=y_ahp, mode="lines+markers",
+        name="AHP Model (mm)", line=dict(color="#5eead4", width=2, dash="dot")
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=[110.0]*n_pt, mode="lines",
+        name="عتبة السيول (110 mm)", line=dict(color="#f87171", width=2, dash="dash")
+    ))
+    fig.update_layout(
+        height=230,
+        margin=dict(l=15, r=15, t=15, b=15),
+        paper_bgcolor="#0c1c34",
+        plot_bgcolor="#081426",
+        font={"color": "#cbd5e1"},
+        xaxis=dict(gridcolor="#162c4d"),
+        yaxis=dict(gridcolor="#162c4d")
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with b_right:
+    st.markdown(f"""
+        <div class="card-box">
+            <div class="card-title">دعم القطاعات الحيوية</div>
+            <div class="sector-row">
+                <b>السيول والمياه:</b> جريان مقدّر {filtered["Runoff_m3s"].mean():.1f} m³/s للأودية والسدود.
+            </div>
+            <div class="sector-row">
+                <b>الملاحة والطرق:</b> رياح {filtered["Wind_kmh"].mean():.0f} km/h وتنبيهات المسارات البحرية والجوية.
+            </div>
+            <div class="sector-row">
+                <b>الزراعة والطاقة:</b> حرارة {filtered["Temp_C"].mean():.1f}°C لدعم المحاصيل وأحمال الطاقة.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+with st.expander("عرض جدول المحطات الـ 26 وتصدير تقرير CSV"):
+    cols = [
+        "Station", "Governorate", "Elevation_m", "Hist_Mean_Rain",
+        "Rain_AHP", "Rain_RF", "Runoff_m3s", "Susceptibility_Idx", "Alert_Level"
+    ]
+    st.dataframe(filtered[cols], use_container_width=True)
+    st.download_button(
+        label="تحميل تقرير المحطات المفلترة (CSV)",
+        data=filtered[cols].to_csv(index=False).encode("utf-8-sig"),
+        file_name="RASD_Flood_Early_Warning.csv",
+        mime="text/csv"
+    )
