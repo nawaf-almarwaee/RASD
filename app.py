@@ -1,798 +1,1121 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flood_Dashboard — لوحة تحليل مخاطر السيول والطقس المباشر</title>
+import streamlit as st
+import pandas as pd
+import numpy as np
+import pydeck as pdk
+import plotly.graph_objects as go
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+st.set_page_config(
+    page_title="RASD — منظومة التنبؤ والإنذار المبكر بالطقس والسيول",
+    page_icon="🌊",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-  <!-- Leaflet للخرائط التفاعلية -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- D3.js للرسوم البيانية -->
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-
-  <style>
-    :root {
-      /* هوية الألوان المستوحاة من الصورة (خلفية بيضاء + أخضر زمردي داكن ونعناعي) */
-      --bg-page: #f4f7f6;
-      --bg-surface: #ffffff;
-      --bg-soft: #f0f5f3;
-      --teal-dark: #064e3b;
-      --teal-mid: #0f766e;
-      --mint: #10b981;
-      --mint-soft: #d1fae5;
-      --border: #dce5e1;
-      --text-main: #0f172a;
-      --text-muted: #526071;
-      --alert-red: #dc2626;
-      --alert-red-bg: #fef2f2;
-      --alert-red-border: #fecaca;
-      --warn-amber: #d97706;
-      --warn-amber-bg: #fffbeb;
-      --info-blue: #0284c7;
-      --info-blue-bg: #f0f9ff;
-      --radius: 14px;
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #06101e;
+        color: #e6eef8;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    section[data-testid="stSidebar"] {
+        display: none;
     }
-
-    body {
-      font-family: 'Cairo', sans-serif;
-      background-color: var(--bg-page);
-      color: var(--text-main);
-      direction: rtl;
-      text-align: right;
-      line-height: 1.65;
-      padding: 18px;
+    button[kind="header"] {
+        display: none;
     }
-
-    .container {
-      max-width: 1520px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
+    .stButton > button,
+    .stButton > button * {
+        background-color: #0d2240 !important;
+        color: #e2e8f0 !important;
+        border: 1px solid #234675 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
     }
-
-    /* شريط علوي باللون الأخضر الزمردي الداكن كما في الصورة */
-    .top-header {
-      background: linear-gradient(90deg, var(--teal-dark) 0%, var(--teal-mid) 100%);
-      color: #ffffff;
-      border-radius: var(--radius);
-      padding: 14px 20px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      box-shadow: 0 6px 18px rgba(6, 78, 59, 0.14);
+    .stButton > button:hover,
+    .stButton > button:hover * {
+        background-color: #133461 !important;
+        color: #7dd3fc !important;
+        border-color: #38bdf8 !important;
     }
-
-    .top-header h1 {
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: #ffffff;
+    .top-control-panel {
+        background: linear-gradient(135deg, #0b2442 0%, #091b33 60%, #071426 100%);
+        border: 1px solid #255285;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 16px rgba(2, 8, 20, 0.45);
     }
-
-    .header-sub {
-      font-size: 0.82rem;
-      color: #d1fae5;
+    .top-panel-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #7dd3fc;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
-
-    .meta-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 0.82rem;
+    .rasd-header {
+        background: linear-gradient(90deg, #091b33 0%, #0e2647 100%);
+        border: 1px solid #1d3b66;
+        border-radius: 10px;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 14px rgba(2, 8, 20, 0.45);
     }
-
-    .pill {
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      padding: 4px 11px;
-      border-radius: 999px;
-      color: #ecfdf5;
+    .brand-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: 0.5px;
     }
-
-    .pill strong {
-      color: #ffffff;
+    .brand-badge {
+        background-color: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        color: #7dd3fc;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-right: 6px;
     }
-
-    /* الصف الرئيسي: لوحة التحكم بالسيناريوهات يمين + الخريطة والمؤشر يسار */
-    .main-grid {
-      display: grid;
-      grid-template-columns: minmax(340px, 1fr) minmax(0, 1.55fr);
-      gap: 18px;
-      align-items: stretch;
+    .header-meta {
+        font-size: 11px;
+        color: #9cb8dc;
+        text-align: right;
     }
-
-    .card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    .live-strip {
+        background: linear-gradient(90deg, rgba(14, 116, 144, 0.24) 0%, rgba(12, 28, 52, 0.95) 100%);
+        border: 1px solid #254b7a;
+        border-radius: 10px;
+        padding: 10px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
     }
-
-    .section-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--teal-dark);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+    .live-pill {
+        background-color: rgba(6, 16, 30, 0.75);
+        border: 1px solid #234675;
+        border-radius: 6px;
+        padding: 4px 10px;
+        color: #e2e8f0;
     }
-
-    .sub-text {
-      font-size: 0.82rem;
-      color: var(--text-muted);
+    .full-region-bar {
+        background-color: #091930;
+        border: 1px solid #1e3a60;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
     }
-
-    /* عمود السيناريوهات */
-    .scenarios-col {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      height: 100%;
+    .bar-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #7dd3fc;
+        margin-bottom: 5px;
     }
-
-    .stats-strip {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+    .top-kpi {
+        background-color: #0c1c34;
+        border: 1px solid #1b3456;
+        border-radius: 10px;
+        padding: 13px 16px;
+        box-shadow: 0 3px 10px rgba(2, 8, 20, 0.3);
+        min-height: 116px;
     }
-
-    .mini-stat {
-      background: var(--bg-soft);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
+    .top-kpi-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
     }
-
-    .mini-stat .val {
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: var(--teal-dark);
+    .top-kpi-title {
+        font-size: 11px;
+        color: #94b2d6;
+        font-weight: 600;
     }
-
-    .scenario-btns {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+    .trend-up {
+        font-size: 11px;
+        font-weight: 700;
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.12);
+        padding: 2px 6px;
+        border-radius: 5px;
     }
-
-    .sc-btn {
-      background: var(--bg-soft);
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-family: 'Cairo', sans-serif;
-      font-size: 0.84rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.15s ease;
+    .trend-down {
+        font-size: 11px;
+        font-weight: 700;
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.12);
+        padding: 2px 6px;
+        border-radius: 5px;
     }
-
-    .sc-btn.active {
-      background: var(--teal-dark);
-      border-color: var(--teal-dark);
-      color: #ffffff;
+    .trend-flat {
+        font-size: 11px;
+        font-weight: 700;
+        color: #facc15;
+        background: rgba(250, 204, 21, 0.12);
+        padding: 2px 6px;
+        border-radius: 5px;
     }
-
-    .alert-box {
-      background: var(--alert-red-bg);
-      border: 1px solid var(--alert-red-border);
-      border-radius: 12px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex: 1;
+    .top-kpi-val {
+        font-size: 24px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.2;
     }
-
-    .badge {
-      display: inline-block;
-      background: var(--alert-red);
-      color: #ffffff;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 3px 11px;
-      border-radius: 999px;
-      width: fit-content;
+    .top-kpi-unit {
+        font-size: 13px;
+        font-weight: 500;
+        color: #7dd3fc;
     }
-
-    .alert-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 0.88rem;
-      color: var(--text-main);
+    .top-kpi-sub {
+        font-size: 11px;
+        color: #94b2d6;
+        margin-top: 5px;
     }
-
-    /* عمود الخريطة والمؤشر */
-    .map-col {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      height: 100%;
+    .card-box {
+        background-color: #0c1c34;
+        border: 1px solid #1b3456;
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: 0 3px 10px rgba(2, 8, 20, 0.3);
+        margin-bottom: 14px;
     }
-
-    #map {
-      width: 100%;
-      height: 430px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      z-index: 1;
+    .card-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-bottom: 8px;
     }
-
-    .slider-panel {
-      background: var(--bg-soft);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 16px;
+    .card-sub {
+        font-size: 11px;
+        color: #94b2d6;
     }
-
-    .slider-top {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--teal-dark);
+    .dark-side-card {
+        background: linear-gradient(180deg, #0d2340 0%, #091629 100%);
+        border: 1px solid #234675;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 14px rgba(2, 8, 20, 0.4);
+        margin-bottom: 14px;
     }
-
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--teal-mid);
-      cursor: pointer;
+    .alert-banner {
+        background-color: rgba(56, 189, 248, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.32);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 10px 0;
     }
-
-    /* مصفوفة الإجراءات أسفل خط المؤشر */
-    .matrix-card {
-      width: 100%;
+    .legend-strip {
+        font-size: 11px;
+        color: #cbd5e1;
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
     }
-
-    .matrix-head {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      padding-bottom: 10px;
-      margin-bottom: 14px;
-      border-bottom: 1px solid var(--border);
+    .sector-row {
+        padding: 8px 0;
+        border-bottom: 1px solid #183052;
+        font-size: 12px;
+        line-height: 1.5;
     }
-
-    .matrix-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 12px;
+    .sector-row:last-child {
+        border-bottom: none;
     }
-
-    .matrix-item {
-      background: var(--bg-soft);
-      border: 1px solid var(--border);
-      border-right: 4px solid var(--teal-mid);
-      border-radius: 12px;
-      padding: 12px 14px;
+    .public-box {
+        background: rgba(14, 116, 144, 0.20);
+        border: 1px solid rgba(56, 189, 248, 0.40);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 14px;
     }
-
-    .matrix-item-title {
-      font-weight: 700;
-      font-size: 0.95rem;
-      color: var(--teal-dark);
-      margin-bottom: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .summary-box {
+        background-color: #081426;
+        border: 1px solid #234675;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #e2e8f0;
+        line-height: 1.6;
     }
+    </style>
+""", unsafe_allow_html=True)
 
-    .tag {
-      font-size: 0.74rem;
-      padding: 2px 8px;
-      border-radius: 6px;
-      background: var(--mint-soft);
-      color: var(--teal-dark);
-      font-weight: 700;
-    }
+makkah_boundary_coords = [
+    [38.88, 22.92],
+    [39.32, 23.12],
+    [39.85, 22.85],
+    [40.45, 22.78],
+    [41.15, 22.65],
+    [41.85, 22.55],
+    [42.55, 22.35],
+    [42.95, 21.85],
+    [42.80, 21.20],
+    [42.20, 20.65],
+    [41.65, 20.15],
+    [41.45, 19.55],
+    [41.20, 19.05],
+    [40.82, 19.35],
+    [40.68, 19.95],
+    [40.25, 20.15],
+    [39.82, 20.75],
+    [39.38, 21.35],
+    [39.05, 21.95],
+    [38.88, 22.92]
+]
 
-    /* التحليلات وجدول الطقس المباشر */
-    .analytics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 18px;
-    }
+stations_data = [
+    ("J112", "جدة", "أودية شمال جدة", "مجرى وادي شمال جدة الساحلي", 39.42, 23.28, 42.0, 25.0, 32.0, 0.35, 31.0, 68.0, 1011.0, 24.0, 95.0, 68, 7, 56.0),
+    ("J140", "جدة", "أودية خليص وثول", "تقاطع وادي خليص مع الطريق الساحلي", 39.28, 22.68, 48.0, 35.0, 38.0, 0.35, 31.5, 70.0, 1010.5, 26.0, 105.0, 72, 8, 42.0),
+    ("J116", "جدة", "وادي غران / شمال جدة", "مصب الوادي شرق الطريق السريع", 39.55, 22.42, 54.0, 85.0, 42.0, 0.40, 32.0, 65.0, 1011.0, 22.0, 88.0, 64, 8, 38.0),
+    ("J220", "جدة", "وادي قديد / شمال جدة", "نقطة تجمع السيول شرق المحافظة", 39.72, 22.15, 62.0, 140.0, 46.0, 0.45, 32.5, 62.0, 1011.5, 25.0, 92.0, 66, 8, 34.0),
+    ("J239", "جدة", "حوض جدة الشمالي", "تقاطع أودية ذهبان وعسفان", 39.58, 21.88, 58.0, 65.0, 44.0, 0.40, 33.0, 67.0, 1010.8, 28.0, 110.0, 76, 9, 28.0),
+    ("J214", "جدة", "وادي عسفان / جدة", "مجرى وادي عسفان ومخرج المياه", 39.88, 21.89, 76.0, 185.0, 52.0, 0.50, 33.5, 58.0, 1011.2, 27.0, 100.0, 71, 9, 26.0),
+    ("J134", "جدة", "حوض جدة الأوسط", "مجرى وادي مريخ وتصريف شرق جدة", 39.18, 21.54, 52.0, 18.0, 40.0, 0.35, 32.8, 72.0, 1010.2, 29.0, 115.0, 80, 9, 24.0),
+    ("J102", "مكة المكرمة", "وادي فاطمة / مكة", "تقاطع وادي فاطمة مع طريق الحرمين", 39.68, 21.46, 88.0, 240.0, 58.0, 0.55, 35.0, 52.0, 1010.6, 23.0, 120.0, 84, 9, 22.0),
+    ("J114", "مكة المكرمة", "وادي نعمان / مكة", "مجرى وادي نعمان ومناطق التجمع", 39.96, 21.42, 104.0, 390.0, 64.0, 0.60, 34.0, 50.0, 1011.4, 21.0, 95.0, 70, 9, 18.0),
+    ("J113", "مكة المكرمة", "أودية الكر / مكة - الطائف", "منحدرات الكر وطريق الهدا", 40.12, 21.62, 138.0, 780.0, 72.0, 0.65, 28.5, 64.0, 1013.0, 26.0, 65.0, 52, 8, 19.0),
+    ("J204", "مكة المكرمة", "وادي الكر السفلي", "نقطة التقاء الشعاب أسفل الكر", 40.05, 21.52, 124.0, 560.0, 68.0, 0.60, 30.0, 58.0, 1012.5, 24.0, 75.0, 58, 8, 17.0),
+    ("J205", "مكة المكرمة", "وادي الكر العلوي", "مناطق التجمع الجبلية بأعالي الكر", 40.22, 21.55, 165.0, 1320.0, 78.0, 0.70, 24.0, 70.0, 1014.5, 28.0, 50.0, 42, 7, 16.0),
+    ("TA206", "الطائف", "حوض الطائف / وادي وج", "مجرى وادي وج ومخرج الطائف", 40.41, 21.27, 192.0, 1480.0, 82.0, 0.72, 22.5, 68.0, 1015.2, 25.0, 48.0, 40, 7, 14.0),
+    ("TA004", "الطائف", "أودية السيل / الطائف", "مجرى السيل الكبير ومخرج الطائف", 40.58, 21.48, 154.0, 1290.0, 74.0, 0.65, 25.0, 56.0, 1014.0, 27.0, 62.0, 49, 8, 21.0),
+    ("TA106", "الطائف", "وادي محرم / الطائف", "تجمع السيول شرق الطائف", 40.52, 21.35, 178.0, 1540.0, 79.0, 0.70, 23.0, 62.0, 1014.8, 24.0, 52.0, 43, 7, 15.0),
+    ("TA002", "الطائف", "حوض سيسد / الطائف", "حوض وادي سيسد ومناطق التجمع", 40.64, 21.22, 186.0, 1620.0, 80.0, 0.70, 22.0, 65.0, 1015.0, 22.0, 46.0, 39, 7, 18.0),
+    ("TA104", "الطائف", "أودية كلاخ / الطائف", "مجرى الأودية الشرقية بالطائف", 40.76, 21.26, 145.0, 1410.0, 70.0, 0.65, 24.5, 50.0, 1014.2, 26.0, 58.0, 47, 8, 27.0),
+    ("TA233", "الطائف", "أودية بقران / الطائف", "مجرى بقران جنوب شرق الطائف", 40.72, 20.98, 172.0, 1710.0, 76.0, 0.68, 21.5, 60.0, 1015.5, 25.0, 45.0, 38, 7, 29.0),
+    ("TA109", "الطائف", "مرتفعات الشفا / الطائف", "منحدرات الشفا والأودية الغربية", 40.32, 21.08, 238.0, 1980.0, 88.0, 0.75, 19.5, 76.0, 1016.0, 28.0, 35.0, 33, 6, 15.0),
+    ("TA005", "الطائف", "أودية شرق مكة - الطائف", "نطاق الرصد الشرقي المفتوح", 41.48, 21.18, 96.0, 1120.0, 55.0, 0.55, 27.0, 44.0, 1013.5, 31.0, 130.0, 88, 9, 74.0),
+    ("J107", "الليث", "وادي الليث العلوي", "نقطة اختناق وادي الليث", 40.27, 20.15, 148.0, 620.0, 74.0, 0.65, 31.0, 66.0, 1011.8, 22.0, 78.0, 60, 8, 33.0),
+    ("J108", "الليث", "مصب وادي الليث", "مجرى الوادي قرب الساحل بالليث", 40.18, 20.05, 84.0, 85.0, 56.0, 0.50, 33.5, 72.0, 1010.4, 24.0, 96.0, 70, 9, 25.0),
+    ("J221", "الليث", "أودية جنوب الليث", "تقاطع الشعاب جنوب المحافظة", 40.68, 20.12, 132.0, 940.0, 68.0, 0.62, 27.5, 61.0, 1012.6, 23.0, 70.0, 55, 8, 39.0),
+    ("J137", "القنفذة", "وادي قنونا الأوسط", "معبر وادي قنونا ومناطق الجريان", 41.08, 19.82, 118.0, 410.0, 65.0, 0.58, 32.0, 69.0, 1011.2, 21.0, 85.0, 64, 9, 36.0),
+    ("J139", "القنفذة", "أودية غرب القنفذة", "مجرى الأودية باتجاه الساحل", 40.86, 19.62, 74.0, 65.0, 52.0, 0.45, 34.0, 74.0, 1010.0, 23.0, 98.0, 71, 9, 31.0),
+    ("J131", "القنفذة", "أودية جنوب شرق القنفذة", "مرتفعات جنوب منطقة الدراسة", 41.52, 19.42, 156.0, 1240.0, 75.0, 0.68, 25.5, 71.0, 1013.8, 24.0, 62.0, 49, 8, 54.0),
+]
 
-    .table-wrap {
-      overflow-x: auto;
-      margin-top: 8px;
-    }
+df = pd.DataFrame(stations_data, columns=[
+    "Station", "Governorate", "Basin", "Hotspot", "lon", "lat",
+    "Hist_Mean_Rain", "Elevation_m", "Soil_Saturation_Pct", "Low_Perm_Factor",
+    "Temp_C", "Humidity_Pct", "Pressure_hPa", "Wind_kmh", "Dust_ugm3",
+    "AQI", "UV_Index", "Dist_Nearest_km"
+])
+df["Extrapolated_Low_Conf"] = df["Dist_Nearest_km"] > 50.0
+coastal_govs = {"جدة", "الليث", "القنفذة"}
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
+defaults = {
+    "audience_mode": "للجهة والقطاعات (Technical)",
+    "selected_gov": "الكل",
+    "model_mode": "Random Forest",
+    "horizon_mode": "التنبؤ الآني (Nowcasting - 24h)",
+    "hazard_type": "الأمطار الغزيرة والسيول",
+    "map_layer": "الهطول والإنذار (مم)",
+    "rain_sim_val": 0,
+    "pct_boost": 0,
+    "storm_hours": 6,
+    "show_boundary": True,
+    "show_terrain": True,
+    "show_wadis": True,
+    "show_basins": True,
+    "picked_station": "TA109",
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-    th, td {
-      border: 1px solid var(--border);
-      padding: 8px 10px;
-      text-align: center;
-      white-space: nowrap;
-    }
+def set_scenario(r_val, p_val):
+    st.session_state.rain_sim_val = r_val
+    st.session_state.pct_boost = p_val
+    st.session_state["sl_rain"] = r_val
+    st.session_state["sl_pct"] = p_val
 
-    th {
-      background: var(--bg-soft);
-      color: var(--teal-dark);
-      font-weight: 700;
-    }
+def reset_all_controls():
+    st.session_state.selected_gov = "الكل"
+    st.session_state.model_mode = "Random Forest"
+    st.session_state.horizon_mode = "التنبؤ الآني (Nowcasting - 24h)"
+    st.session_state.hazard_type = "الأمطار الغزيرة والسيول"
+    st.session_state.map_layer = "الهطول والإنذار (مم)"
+    st.session_state.rain_sim_val = 0
+    st.session_state.pct_boost = 0
+    st.session_state.storm_hours = 6
+    st.session_state["sl_rain"] = 0
+    st.session_state["sl_pct"] = 0
+    st.session_state["sl_hrs"] = 6
+    st.session_state.show_boundary = True
+    st.session_state.show_terrain = True
+    st.session_state.show_wadis = True
+    st.session_state.show_basins = True
+    st.session_state.picked_station = "TA109"
 
-    .rain-alert-cell {
-      background: #fee2e2 !important;
-      color: #991b1b;
-      font-weight: 800;
-    }
+# 1) لوحة التحكم والسيناريوهات بالعرض فوق
+st.markdown('<div class="top-control-panel"><div class="top-panel-title"><span>لوحة التحكم والسيناريوهات</span><span style="font-size:11px;color:#9cb8dc;">تحكم مباشر بالعرض الكامل</span></div>', unsafe_allow_html=True)
 
-    #ahpChart {
-      width: 100%;
-      min-height: 220px;
-    }
+top_c1, top_c2, top_c3 = st.columns([1.2, 2.2, 2.2])
 
-    @media (max-width: 1024px) {
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
-      #map {
-        height: 350px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
+with top_c1:
+    st.markdown('<div class="bar-label">زاوية العرض</div>', unsafe_allow_html=True)
+    aud_choice = st.radio(
+        "زاوية العرض",
+        ["للجهة والقطاعات (Technical)", "للفرد والسكان (Public)"],
+        index=0 if st.session_state.audience_mode.startswith("للجهة") else 1,
+        label_visibility="collapsed",
+        key="top_aud_radio"
+    )
+    st.session_state.audience_mode = aud_choice
 
-    <!-- شريط علوي بالهوية الخضراء الداكنة -->
-    <header class="top-header">
-      <div>
-        <h1>Flood_Dashboard — لوحة تحليل مخاطر السيول والطقس المباشر</h1>
-        <div class="header-sub">بيانات ثابتة مدمجة (JSON) + تحديث مباشر كل 15 دقيقة عبر Open-Meteo API</div>
-      </div>
-      <div class="meta-pills">
-        <span class="pill">مساحة الدراسة: <strong>151,288 كم²</strong></span>
-        <span class="pill">محطات الأمطار: <strong>26 محطة</strong></span>
-        <span class="pill">اتساق AHP: <strong>CR = 0.011</strong></span>
-        <span class="pill" id="lastSyncPill">آخر تحديث للطقس: <strong>جاري الجلب...</strong></span>
-      </div>
-    </header>
+with top_c2:
+    st.markdown('<div class="bar-label">سيناريوهات جاهزة + Reset</div>', unsafe_allow_html=True)
+    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+    if sc1.button("وضع طبيعي", key="top_sb_norm"):
+        set_scenario(0, 0)
+        st.rerun()
+    if sc2.button("هطول متوسط", key="top_sb_mod"):
+        set_scenario(40, 15)
+        st.rerun()
+    if sc3.button("عاصفة غزيرة", key="top_sb_heavy"):
+        set_scenario(95, 35)
+        st.rerun()
+    if sc4.button("سيناريو حرج", key="top_sb_crit"):
+        set_scenario(155, 60)
+        st.rerun()
+    if sc5.button("Reset", key="top_sb_reset"):
+        reset_all_controls()
+        st.rerun()
 
-    <!-- الصف الرئيسي: السيناريوهات بجانب الخريطة والمؤشر -->
-    <div class="main-grid">
+with top_c3:
+    sl1, sl2, sl3 = st.columns(3)
+    st.session_state.rain_sim_val = sl1.slider(
+        "زيادة الهطول (مم)", 0, 180, int(st.session_state.rain_sim_val), 5, key="sl_rain"
+    )
+    st.session_state.pct_boost = sl2.slider(
+        "What-If الهطول (%)", -20, 100, int(st.session_state.pct_boost), 5, key="sl_pct"
+    )
+    st.session_state.storm_hours = sl3.slider(
+        "مدة العاصفة (ساعات)", 2, 24, int(st.session_state.storm_hours), 2, key="sl_hrs"
+    )
 
-      <!-- يمين: لوحة التحكم بالسيناريوهات -->
-      <aside class="card scenarios-col">
-        <div class="section-title">
-          <span>لوحة التحكم بالسيناريوهات</span>
-          <span class="sub-text" id="scenarioCodeLabel">TA109</span>
+st.markdown("</div>", unsafe_allow_html=True)
+
+def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer, h_type):
+    out = base_df.copy()
+    h_mult = 1.0 if "Nowcasting" in h_mode else (1.15 if "14 Days" in h_mode else 1.25)
+    dur_factor = 0.75 + (dur_hrs / 12.0) * 0.45
+    pct_factor = 1.0 + (pct_chg / 100.0)
+
+    out["Rain_RF"] = np.round((out["Hist_Mean_Rain"] * pct_factor + (rain_extra * 1.25)) * h_mult * dur_factor, 1)
+    out["Rain_AHP"] = np.round((out["Hist_Mean_Rain"] * pct_factor + (rain_extra * 0.92)) * h_mult * dur_factor, 1)
+    out["Forecast_Rain"] = out["Rain_RF"] if m_mode == "Random Forest" else out["Rain_AHP"]
+
+    out["Eff_Soil_Sat_Pct"] = np.clip(out["Soil_Saturation_Pct"] + (out["Forecast_Rain"] * 0.12), 15.0, 100.0)
+    runoff_coeff = np.clip(0.22 + (out["Eff_Soil_Sat_Pct"] / 100.0) * 0.35 + out["Low_Perm_Factor"] * 0.32, 0.25, 0.92)
+    out["Runoff_m3s"] = np.round(out["Forecast_Rain"] * runoff_coeff * (1.2 + out["Elevation_m"] / 1600.0), 1)
+    out["Arrival_Hours"] = np.round(np.clip(6.5 - (out["Forecast_Rain"] / 70.0) + (out["Elevation_m"] / 1400.0), 1.2, 8.5), 1)
+
+    storm_boost = 1.0 if "الأمطار" in h_type else 1.35
+    washout_factor = np.where(out["Forecast_Rain"] > 90.0, 0.75, 1.0)
+    out["Eff_Wind_kmh"] = np.round(
+        out["Wind_kmh"] * (1.0 + (rain_extra / 240.0) + (0.20 if "العواصف" in h_type else 0.0)),
+        0
+    )
+    out["Eff_Dust_ugm3"] = np.round(
+        np.maximum(15.0, out["Dust_ugm3"] * (1.0 + (out["Eff_Wind_kmh"] - 25.0) / 80.0) * washout_factor),
+        0
+    )
+    out["Eff_AQI"] = np.clip(
+        np.round(out["AQI"] * 0.55 + (out["Eff_Dust_ugm3"] * 0.45) * storm_boost - (out["Forecast_Rain"] * 0.08)),
+        18,
+        260
+    ).astype(int)
+
+    out["Susceptibility_Idx"] = np.clip(
+        (out["Forecast_Rain"] / 260.0) * 0.50
+        + (out["Eff_Soil_Sat_Pct"] / 100.0) * 0.25
+        + out["Low_Perm_Factor"] * 0.25,
+        0.05,
+        0.99
+    )
+    out["Dew_Point_C"] = np.round(out["Temp_C"] - ((100.0 - out["Humidity_Pct"]) / 5.0), 1)
+
+    def _row_meta(r_item):
+        rain_v = float(r_item["Forecast_Rain"])
+        susc_v = float(r_item["Susceptibility_Idx"])
+        if rain_v < 75 and susc_v < 0.48:
+            a_lbl, t_col = "أزرق · مستقر", [3, 105, 161, 255]
+            adv_txt = "حالة مستقرة؛ متابعة اعتيادية للأجواء ومجاري الأودية ضمن منطقة مكة المكرمة."
+        elif rain_v < 135 and susc_v < 0.65:
+            a_lbl, t_col = "أصفر · تنبيه مبكر", [161, 98, 7, 255]
+            adv_txt = "تنبيه مبكر؛ تشبع جزئي للتربة واحتمال جريان متوسط في الشعاب والأودية."
+        elif rain_v < 190 and susc_v < 0.80:
+            a_lbl, t_col = "برتقالي · حيطة وحذر", [194, 65, 12, 255]
+            adv_txt = "حيطة وحذر؛ جريان نشط محتمل وتجنب نقاط الاختناق والأودية."
+        else:
+            a_lbl, t_col = "أحمر · إنذار سيول شديد", [185, 28, 28, 255]
+            adv_txt = "إنذار سيول شديد؛ سرعة استجابة عالية وتجنب بطون الأودية فوراً."
+
+        if "AQI" in m_layer:
+            aq_val = float(r_item["Eff_AQI"])
+            w_val = min(aq_val / 220.0, 1.0)
+            read_txt = f"AQI {int(aq_val)}"
+        else:
+            w_val = min(rain_v / 260.0, 1.0)
+            read_txt = f"{rain_v:.1f} mm"
+
+        conf_tag = " (>50km)" if bool(r_item["Extrapolated_Low_Conf"]) else ""
+        return a_lbl, t_col, adv_txt, w_val, read_txt, f"{r_item['Station']} · {read_txt}{conf_tag}"
+
+    meta_res = out.apply(_row_meta, axis=1)
+    out["Alert_Level"] = [x[0] for x in meta_res]
+    out["Txt_Color"] = [x[1] for x in meta_res]
+    out["Advice"] = [x[2] for x in meta_res]
+    out["Heat_Weight"] = [x[3] for x in meta_res]
+    out["Reading_Str"] = [x[4] for x in meta_res]
+    out["Map_Label"] = [x[5] for x in meta_res]
+    return out
+
+baseline_df = compute_hydro(
+    df, 0, 0, 6,
+    "التنبؤ الآني (Nowcasting - 24h)",
+    "Random Forest",
+    "الهطول والإنذار (مم)",
+    "الأمطار الغزيرة والسيول"
+)
+sim_all_df = compute_hydro(
+    df,
+    st.session_state.rain_sim_val,
+    st.session_state.pct_boost,
+    st.session_state.storm_hours,
+    st.session_state.horizon_mode,
+    st.session_state.model_mode,
+    st.session_state.map_layer,
+    st.session_state.hazard_type
+)
+
+if st.session_state.selected_gov == "الكل":
+    filtered = sim_all_df.copy()
+    base_filt = baseline_df.copy()
+else:
+    filtered = sim_all_df[sim_all_df["Governorate"] == st.session_state.selected_gov].copy()
+    base_filt = baseline_df[baseline_df["Governorate"] == st.session_state.selected_gov].copy()
+
+station_list = filtered["Station"].tolist()
+if st.session_state.picked_station not in station_list:
+    st.session_state.picked_station = filtered.sort_values("Forecast_Rain", ascending=False).iloc[0]["Station"]
+
+st_row = filtered[filtered["Station"] == st.session_state.picked_station].iloc[0]
+top_st = st_row
+
+avg_rain = filtered["Forecast_Rain"].mean()
+max_rain = filtered["Forecast_Rain"].max()
+avg_risk = filtered["Susceptibility_Idx"].mean()
+avg_runoff = filtered["Runoff_m3s"].mean()
+avg_soil = filtered["Eff_Soil_Sat_Pct"].mean()
+avg_arrival = filtered["Arrival_Hours"].mean()
+avg_aqi = int(filtered["Eff_AQI"].mean())
+severe_cnt = int((filtered["Forecast_Rain"] >= 135).sum())
+
+diff_rain = avg_rain - base_filt["Forecast_Rain"].mean()
+diff_runoff = avg_runoff - base_filt["Runoff_m3s"].mean()
+diff_risk = avg_risk - base_filt["Susceptibility_Idx"].mean()
+diff_aqi = avg_aqi - int(base_filt["Eff_AQI"].mean())
+
+audience_mode = st.session_state.audience_mode
+model_mode = st.session_state.model_mode
+horizon_mode = st.session_state.horizon_mode
+hazard_type = st.session_state.hazard_type
+map_layer = st.session_state.map_layer
+rain_add = st.session_state.rain_sim_val
+pct_boost = st.session_state.pct_boost
+storm_hours = st.session_state.storm_hours
+
+source_tag = (
+    "المرجع التاريخي (1964–2014)"
+    if (rain_add == 0 and pct_boost == 0 and storm_hours == 6)
+    else f"+{rain_add} مم · ({pct_boost:+d}% / {storm_hours} س)"
+)
+
+# 2) الشريط العلوي الرئيسي
+st.markdown(f"""
+    <div class="rasd-header">
+        <div>
+            <span class="brand-title">RASD</span>
+            <span class="brand-badge">منطقة مكة المكرمة</span>
+            <span class="brand-badge">{st.session_state.selected_gov}</span>
+            <span class="brand-badge">{st_row["Station"]}</span>
+            <span class="brand-badge">{model_mode}</span>
         </div>
-
-        <div class="stats-strip">
-          <div class="mini-stat">
-            <div class="sub-text">مؤشر شدة الحالة</div>
-            <div class="val" id="intensityVal">84.7%</div>
-          </div>
-          <div class="mini-stat">
-            <div class="sub-text">أرض جرداء / عمران</div>
-            <div class="val">94.6% / 1.0%</div>
-          </div>
+        <div class="header-meta">
+            <div><b>{source_tag}</b> · 26 محطة MEWA (حدود منطقة الدراسة)</div>
+            <div>{audience_mode} · {horizon_mode}</div>
         </div>
-
-        <div class="scenario-btns">
-          <button class="sc-btn active" data-sc="TA109" onclick="setScenario('TA109')">TA109 (الطائف)</button>
-          <button class="sc-btn" data-sc="TA204" onclick="setScenario('TA204')">TA204 (الأودية)</button>
-          <button class="sc-btn" data-sc="TA305" onclick="setScenario('TA305')">TA305 (الساحل)</button>
-        </div>
-
-        <div class="alert-box" id="alertBox">
-          <span class="badge" id="alertBadge">أحمر • إنذار سيول شديد</span>
-          <div style="font-weight: 800; font-size: 1rem;" id="alertTitle">المحطة: (الطائف) TA109</div>
-          <ul class="alert-list" id="alertList">
-            <li><strong>الحوض:</strong> مرتفعات الشفا / الطائف</li>
-            <li><strong>الطقس المباشر الآن:</strong> جاري القراءة من Open-Meteo...</li>
-            <li><strong>هطول اليوم المتوقع:</strong> جاري التحديث...</li>
-            <li><strong>الإجراء الفوري:</strong> الحذر من جريان السيول في مجاري الأودية</li>
-          </ul>
-        </div>
-      </aside>
-
-      <!-- يسار: الخريطة التفاعلية + المؤشر أسفلها -->
-      <section class="card map-col">
-        <div class="section-title">
-          <span>الخريطة التفاعلية لنطاق الهطول والمخاطر</span>
-          <span class="sub-text" id="rainSummaryTop">الهطول: +85 مم (+50%)</span>
-        </div>
-
-        <div id="map"></div>
-
-        <!-- خط المؤشر أسفل الخريطة -->
-        <div class="slider-panel">
-          <div class="slider-top">
-            <label for="simSlider" id="simSliderLabel">مؤشر محاكاة الهطول: +85 مم (+50% • 6 س)</label>
-            <span class="sub-text">العتبة الاسترشادية: ≥ 20 ملم/يوم تنبيه</span>
-          </div>
-          <input id="simSlider" type="range" min="10" max="100" step="0.1" value="84.7" oninput="updateSimulation(this.value)" />
-        </div>
-      </section>
-
     </div>
+""", unsafe_allow_html=True)
 
-    <!-- مصفوفة الإجراءات أسفل خط المؤشر -->
-    <section class="card matrix-card">
-      <div class="matrix-head">
-        <div class="section-title" style="margin-bottom: 0;">
-          <span>مصفوفة الإجراءات</span>
+# 3) شريط المناطق التفاعلي بالعرض الكامل
+st.markdown('<div class="full-region-bar"><div class="bar-label">نطاقات منطقة مكة المكرمة (نقرة واحدة لتحديث اللوحة والمنطقة والإنذار)</div>', unsafe_allow_html=True)
+gov_buttons = ["الكل", "مكة المكرمة", "جدة", "الطائف", "الليث", "القنفذة"]
+g_cols = st.columns(len(gov_buttons))
+for idx_g, g_name in enumerate(gov_buttons):
+    g_sub = sim_all_df if g_name == "الكل" else sim_all_df[sim_all_df["Governorate"] == g_name]
+    g_max = g_sub["Forecast_Rain"].max()
+    dot = "🔴" if g_max >= 190 else ("🟠" if g_max >= 135 else ("🟡" if g_max >= 75 else "🔵"))
+    active_mark = "✦ " if st.session_state.selected_gov == g_name else ""
+    if g_cols[idx_g].button(f"{active_mark}{dot} {g_name}", key=f"gov_btn_{g_name}"):
+        st.session_state.selected_gov = g_name
+        st.rerun()
+st.markdown("</div>", unsafe_allow_html=True)
+
+# شريط الحالة الفورية
+st.markdown(f"""
+    <div class="live-strip">
+        <div>
+            <span style="color:#7dd3fc;font-weight:700;">المحطة المحددة ({st_row["Station"]} · {st_row["Governorate"]}):</span>
+            <b>{top_st["Alert_Level"]}</b> — {top_st["Advice"]}
         </div>
-        <span class="badge" id="matrixBadge">أحمر • إنذار سيول شديد</span>
-      </div>
-
-      <div class="matrix-grid">
-        <div class="matrix-item">
-          <div class="matrix-item-title">
-            <span>السيول والمياه</span>
-            <span class="tag">أولوية قصوى</span>
-          </div>
-          <p class="sub-text">مراقبة منسوب الجريان وتصريف السدود عند الحد الآمن ومتابعة محطات الأمطار الـ26.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <span class="live-pill">الحوض: <b>{top_st["Basin"]}</b></span>
+            <span class="live-pill">نقطة حرجة: <b>{top_st["Hotspot"]}</b></span>
+            <span class="live-pill">وصول الجريان: <b>~{top_st["Arrival_Hours"]} س</b></span>
+            <span class="live-pill">تشبع التربة: <b>{top_st["Eff_Soil_Sat_Pct"]:.0f}%</b></span>
         </div>
+    </div>
+""", unsafe_allow_html=True)
 
-        <div class="matrix-item">
-          <div class="matrix-item-title">
-            <span>الطرق والملاحة</span>
-            <span class="tag">تحذير مروري</span>
-          </div>
-          <p class="sub-text">تجنب المسارات المنخفضة وبطون الأودية أثناء ارتفاع الهطول أو رصد تجمع للمياه.</p>
+# 4) أزرار التبديل المباشرة للنموذج والأفق والظاهرة والمؤشر
+r2_1, r2_2, r2_3, r2_4 = st.columns([1.2, 1.4, 1.3, 1.3])
+with r2_1:
+    st.markdown('<div class="bar-label">النموذج</div>', unsafe_allow_html=True)
+    m1, m2 = st.columns(2)
+    if m1.button(("✦ " if model_mode == "Random Forest" else "") + "RF", key="btn_rf"):
+        st.session_state.model_mode = "Random Forest"
+        st.rerun()
+    if m2.button(("✦ " if model_mode == "AHP" else "") + "AHP", key="btn_ahp"):
+        st.session_state.model_mode = "AHP"
+        st.rerun()
+
+with r2_2:
+    st.markdown('<div class="bar-label">الأفق الزمني</div>', unsafe_allow_html=True)
+    h1, h2, h3 = st.columns(3)
+    if h1.button(("✦ " if "Nowcasting" in horizon_mode else "") + "24h", key="btn_now"):
+        st.session_state.horizon_mode = "التنبؤ الآني (Nowcasting - 24h)"
+        st.rerun()
+    if h2.button(("✦ " if "14 Days" in horizon_mode else "") + "14d", key="btn_14d"):
+        st.session_state.horizon_mode = "التوقعات الممتدة (14 Days)"
+        st.rerun()
+    if h3.button(("✦ " if "Seasonal" in horizon_mode else "") + "موسمي", key="btn_seas"):
+        st.session_state.horizon_mode = "النماذج الفصلية (Seasonal)"
+        st.rerun()
+
+with r2_3:
+    st.markdown('<div class="bar-label">الظاهرة</div>', unsafe_allow_html=True)
+    z1, z2 = st.columns(2)
+    if z1.button(("✦ " if "الأمطار" in hazard_type else "") + "سيول", key="btn_hz_rain"):
+        st.session_state.hazard_type = "الأمطار الغزيرة والسيول"
+        st.rerun()
+    if z2.button(("✦ " if "العواصف" in hazard_type else "") + "عواصف", key="btn_hz_wind"):
+        st.session_state.hazard_type = "العواصف الرعدية والرياح"
+        st.rerun()
+
+with r2_4:
+    st.markdown('<div class="bar-label">مؤشر الخريطة</div>', unsafe_allow_html=True)
+    l1, l2 = st.columns(2)
+    if l1.button(("✦ " if "الهطول" in map_layer else "") + "هطول", key="btn_ml_rain"):
+        st.session_state.map_layer = "الهطول والإنذار (مم)"
+        st.rerun()
+    if l2.button(("✦ " if "AQI" in map_layer else "") + "AQI", key="btn_ml_aqi"):
+        st.session_state.map_layer = "جودة الهواء (AQI)"
+        st.rerun()
+
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+# 5) الصف الأول: 4 كروت أرقام
+trend_rain_cls = "trend-up" if diff_rain > 2 else ("trend-down" if diff_rain < -2 else "trend-flat")
+trend_rain_lbl = f"↑ +{diff_rain:.1f} mm" if diff_rain > 2 else (f"↓ {diff_rain:.1f} mm" if diff_rain < -2 else "→ 0.0 mm")
+
+trend_risk_cls = "trend-up" if diff_risk > 0.02 else ("trend-down" if diff_risk < -0.02 else "trend-flat")
+trend_risk_lbl = f"↑ +{diff_risk:.2f}" if diff_risk > 0.02 else (f"↓ {diff_risk:.2f}" if diff_risk < -0.02 else "→ مستقر")
+
+trend_runoff_cls = "trend-up" if diff_runoff > 3 else ("trend-down" if diff_runoff < -3 else "trend-flat")
+trend_runoff_lbl = f"↑ +{diff_runoff:.1f}" if diff_runoff > 3 else (f"↓ {diff_runoff:.1f}" if diff_runoff < -3 else "→ ثابت")
+
+trend_aqi_cls = "trend-up" if diff_aqi > 5 else ("trend-down" if diff_aqi < -5 else "trend-flat")
+trend_aqi_lbl = f"↑ +{diff_aqi} AQI" if diff_aqi > 5 else (f"↓ {diff_aqi} AQI" if diff_aqi < -5 else "→ معتدل")
+
+c1, c2, c3, c4 = st.columns(4)
+if audience_mode.startswith("للفرد"):
+    status_txt = "إنذار أحمر/برتقالي" if severe_cnt >= 3 else ("تنبيه أصفر" if severe_cnt > 0 else "مستقر · أزرق")
+    c1.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">حالة المنطقة والإنذار</span><span class="{trend_risk_cls}">{trend_risk_lbl}</span></div><div class="top-kpi-val" style="font-size:19px;color:#7dd3fc;">{status_txt}</div><div class="top-kpi-sub">{hazard_type} · وصول متوقع خلال {avg_arrival:.1f} س</div></div>""",
+        unsafe_allow_html=True
+    )
+    c2.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">متوسط الهطول ({source_tag})</span><span class="{trend_rain_cls}">{trend_rain_lbl}</span></div><div class="top-kpi-val">{avg_rain:.1f} <span class="top-kpi-unit">mm</span></div><div class="top-kpi-sub">الفرق عن المرجع: {diff_rain:+.1f} mm · الذروة {max_rain:.1f} mm</div></div>""",
+        unsafe_allow_html=True
+    )
+    c3.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">الحرارة والرياح</span><span class="trend-flat">→ {filtered["Eff_Wind_kmh"].mean():.0f} km/h</span></div><div class="top-kpi-val">{filtered["Temp_C"].mean():.1f} <span class="top-kpi-unit">°C</span></div><div class="top-kpi-sub">رطوبة {filtered["Humidity_Pct"].mean():.0f}% · ندى {filtered["Dew_Point_C"].mean():.1f}°C</div></div>""",
+        unsafe_allow_html=True
+    )
+    c4.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">جودة الهواء والغبار (AQI)</span><span class="{trend_aqi_cls}">{trend_aqi_lbl}</span></div><div class="top-kpi-val">{avg_aqi} <span class="top-kpi-unit">AQI</span></div><div class="top-kpi-sub">غبار {filtered["Eff_Dust_ugm3"].mean():.0f} µg/m³ · UV {int(filtered["UV_Index"].mean())}</div></div>""",
+        unsafe_allow_html=True
+    )
+else:
+    c1.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">الذروة ضمن الحدود ({model_mode})</span><span class="{trend_rain_cls}">{trend_rain_lbl}</span></div><div class="top-kpi-val">{max_rain:.1f} <span class="top-kpi-unit">mm</span></div><div class="top-kpi-sub">RF: {filtered["Rain_RF"].mean():.1f} mm · AHP: {filtered["Rain_AHP"].mean():.1f} mm</div></div>""",
+        unsafe_allow_html=True
+    )
+    c2.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">مؤشر الحساسية (FSI)</span><span class="{trend_risk_cls}">{trend_risk_lbl}</span></div><div class="top-kpi-val">{avg_risk:.2f}</div><div class="top-kpi-sub">تشبع التربة: {avg_soil:.0f}% · نفاذية منخفضة {filtered["Low_Perm_Factor"].mean():.2f}</div></div>""",
+        unsafe_allow_html=True
+    )
+    c3.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">الجريان السطحي للأودية</span><span class="{trend_runoff_cls}">{trend_runoff_lbl}</span></div><div class="top-kpi-val">{avg_runoff:.1f} <span class="top-kpi-unit">m³/s</span></div><div class="top-kpi-sub">الفرق عن المرجع: {diff_runoff:+.1f} m³/s · وصول ~{avg_arrival:.1f} س</div></div>""",
+        unsafe_allow_html=True
+    )
+    c4.markdown(
+        f"""<div class="top-kpi"><div class="top-kpi-head"><span class="top-kpi-title">الرياح وجودة الهواء (AQI)</span><span class="{trend_aqi_cls}">{trend_aqi_lbl}</span></div><div class="top-kpi-val">{avg_aqi} <span class="top-kpi-unit">AQI</span></div><div class="top-kpi-sub">رياح {filtered["Eff_Wind_kmh"].mean():.0f} km/h · غبار {filtered["Eff_Dust_ugm3"].mean():.0f} µg/m³</div></div>""",
+        unsafe_allow_html=True
+    )
+
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+if audience_mode.startswith("للفرد"):
+    st.markdown(f"""
+        <div class="public-box">
+            <div style="font-size:13px;font-weight:700;color:#7dd3fc;">ماذا يعني هذا لك الآن؟ ({top_st["Governorate"]} · {top_st["Station"]})</div>
+            <div style="font-size:12px;color:#f1f5f9;margin-top:4px;">
+                مستوى الحالة الحالي: <b>{top_st["Alert_Level"]}</b> — {top_st["Advice"]}
+                الزمن التقديري لوصول الجريان قرب <b>{top_st["Hotspot"]}</b> هو <b>{top_st["Arrival_Hours"]} ساعة</b>، وجودة الهواء الحالية <b>{avg_aqi} AQI</b>.
+            </div>
         </div>
+    """, unsafe_allow_html=True)
 
-        <div class="matrix-item">
-          <div class="matrix-item-title">
-            <span>الغطاء الأرضي والتربة</span>
-            <span class="tag">ESA WorldCover</span>
-          </div>
-          <p class="sub-text">مراعاة سرعة الجريان السطحي في الأراضي الجرداء (94.6%) مقارنة بالمناطق العمرانية (1.0%).</p>
-        </div>
+# 6) الصف الأوسط: خريطة منطقة الدراسة الفعّالة + مؤشر الخطورة وبطاقة الإنذار
+m_center, m_side = st.columns([2.65, 1.35])
 
-        <div class="matrix-item">
-          <div class="matrix-item-title">
-            <span>التنبيه الاسترشادي (20 ملم)</span>
-            <span class="tag">استرشادي</span>
-          </div>
-          <p class="sub-text">تلوين خلية التوقع باللون الأحمر عند بلوغ 20 ملم أو أكثر في يوم واحد كتنبيه استرشادي غير رسمي.</p>
-        </div>
-      </div>
-    </section>
+with m_center:
+    st.markdown(
+        f'<div class="card-box"><div class="card-title">خريطة منطقة مكة المكرمة الفعّالة (حدود الدراسة و26 محطة MEWA) · {map_layer}</div>',
+        unsafe_allow_html=True
+    )
 
-    <!-- التحليلات الثابتة (D3.js) + توقعات الطقس المباشرة لـ 7 أيام -->
-    <section class="analytics-grid">
-      <div class="card">
-        <div class="section-title">
-          <span>أوزان معايير AHP (CR = 0.011)</span>
-          <span class="sub-text">رسم بياني عبر D3.js</span>
-        </div>
-        <div id="ahpChart"></div>
-      </div>
+    t_col0, t_col1, t_col2, t_col3 = st.columns(4)
+    if t_col0.button(("● " if st.session_state.show_boundary else "○ ") + "حدود المنطقة", key="btn_l_bound"):
+        st.session_state.show_boundary = not st.session_state.show_boundary
+        st.rerun()
+    if t_col1.button(("● " if st.session_state.show_terrain else "○ ") + "تأثير المرتفعات", key="btn_l_terr"):
+        st.session_state.show_terrain = not st.session_state.show_terrain
+        st.rerun()
+    if t_col2.button(("● " if st.session_state.show_wadis else "○ ") + "مسار الأودية", key="btn_l_wadi"):
+        st.session_state.show_wadis = not st.session_state.show_wadis
+        st.rerun()
+    if t_col3.button(("● " if st.session_state.show_basins else "○ ") + "الأحواض المائية", key="btn_l_basin"):
+        st.session_state.show_basins = not st.session_state.show_basins
+        st.rerun()
 
-      <div class="card">
-        <div class="section-title">
-          <span>الطقس المباشر وتوقعات 7 أيام (Open-Meteo)</span>
-          <span class="sub-text">تنبيه أحمر عند ≥ 20 ملم/يوم</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>المدينة</th>
-                <th>الحالة الآن</th>
-                <th>الحرارة</th>
-                <th>الرطوبة</th>
-                <th>الرياح</th>
-                <th>اليوم (ملم)</th>
-                <th>أقصى توقع 7 أيام</th>
-              </tr>
-            </thead>
-            <tbody id="weatherTableBody">
-              <tr><td colspan="7">جاري تحميل بيانات الطقس المباشرة...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+    st_options = [
+        f"{r['Station']} — {r['Basin']} ({r['Governorate']} | {r['Reading_Str']})"
+        for _, r in filtered.iterrows()
+    ]
+    st_codes = filtered["Station"].tolist()
+    curr_idx = st_codes.index(st.session_state.picked_station) if st.session_state.picked_station in st_codes else 0
+    chosen_label = st.selectbox(
+        "تحديد محطة نشطة على الخريطة والمنحنى الزمني",
+        options=st_options,
+        index=curr_idx,
+        key="map_station_selector"
+    )
+    new_station = st_codes[st_options.index(chosen_label)]
+    if new_station != st.session_state.picked_station:
+        st.session_state.picked_station = new_station
+        st.rerun()
 
-  </div>
+    st_row = filtered[filtered["Station"] == st.session_state.picked_station].iloc[0]
+    top_st = st_row
 
-  <script>
-    const STATIC_PROJECT_DATA = {
-      studyAreaKm2: 151288,
-      rainStationsCount: 26,
-      landCover: { bareSoilPct: 94.6, builtUpPct: 1.0 },
-      ahpConsistencyRatio: 0.011,
-      rainThresholdMm: 20,
-      ahpWeights: [
-        { criterion: "شدة وهطول الأمطار", weight: 0.38 },
-        { criterion: "الانحدار والطبوغرافيا", weight: 0.27 },
-        { criterion: "الغطاء الأرضي (WorldCover)", weight: 0.19 },
-        { criterion: "كثافة شبكة التصريف", weight: 0.16 }
-      ],
-      scenarios: {
-        TA109: {
-          code: "TA109",
-          station: "المحطة: (الطائف) TA109",
-          basin: "مرتفعات الشفا / الطائف",
-          cityKey: "taif",
-          lat: 21.27,
-          lng: 40.41,
-          defaultPct: 84.7
-        },
-        TA204: {
-          code: "TA204",
-          station: "المحطة: (بيشة / الأودية) TA204",
-          basin: "حوض الأودية الجنوبية",
-          cityKey: "bishah",
-          lat: 19.99,
-          lng: 42.60,
-          defaultPct: 68.0
-        },
-        TA305: {
-          code: "TA305",
-          station: "المحطة: (جدة / الساحل) TA305",
-          basin: "السهول الساحلية الغربية",
-          cityKey: "jeddah",
-          lat: 21.54,
-          lng: 39.17,
-          defaultPct: 52.0
+    if "AQI" in map_layer:
+        climate_color_range = [
+            [56, 189, 248],
+            [163, 230, 53],
+            [250, 204, 21],
+            [251, 146, 60],
+            [220, 38, 38],
+            [153, 27, 27]
+        ]
+    else:
+        climate_color_range = [
+            [186, 230, 253],
+            [56, 189, 248],
+            [2, 132, 199],
+            [30, 64, 175],
+            [251, 146, 60],
+            [220, 38, 38]
+        ]
+
+    heat_points = []
+    for _, r_item in filtered.iterrows():
+        base_w = float(r_item["Heat_Weight"])
+        elev_boost = min(float(r_item["Elevation_m"]) / 2400.0, 0.22) if (st.session_state.show_terrain and "AQI" not in map_layer) else 0.0
+        w_main = min(base_w + elev_boost, 1.0)
+        heat_points.append({"lon": float(r_item["lon"]), "lat": float(r_item["lat"]), "w": w_main})
+        for d_lat, d_lon, factor in [
+            (0.15, 0.0, 0.85), (-0.15, 0.0, 0.80),
+            (0.0, 0.16, 0.85), (0.0, -0.16, 0.78),
+            (0.11, 0.12, 0.72), (-0.11, -0.12, 0.72),
+        ]:
+            heat_points.append({
+                "lon": float(r_item["lon"]) + d_lon,
+                "lat": float(r_item["lat"]) + d_lat,
+                "w": max(0.08, min(w_main * factor, 1.0))
+            })
+
+    active_df = filtered[filtered["Station"] == st.session_state.picked_station]
+
+    map_layers = [
+        pdk.Layer(
+            "HeatmapLayer",
+            data=pd.DataFrame(heat_points),
+            get_position=["lon", "lat"],
+            get_weight="w",
+            radius_pixels=115,
+            intensity=1.25,
+            threshold=0.04,
+            color_range=climate_color_range,
+        ),
+        pdk.Layer(
+            "TextLayer",
+            data=filtered,
+            get_position=["lon", "lat"],
+            get_text="Map_Label",
+            get_color="Txt_Color",
+            get_size=12,
+            get_alignment_baseline="'bottom'",
+            background=True,
+            get_background_color=[255, 255, 255, 235],
+            background_padding=[3, 6],
+            pickable=True,
+        ),
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=active_df,
+            get_position=["lon", "lat"],
+            get_fill_color=[255, 255, 255, 230],
+            get_line_color=[220, 38, 38, 255],
+            line_width_min_pixels=3.5,
+            stroked=True,
+            filled=True,
+            get_radius=14000,
+            pickable=True,
+        )
+    ]
+
+    if st.session_state.show_boundary:
+        map_layers.append(pdk.Layer(
+            "PolygonLayer",
+            data=[{"polygon": makkah_boundary_coords, "name": "حدود منطقة مكة المكرمة (منطقة الدراسة)"}],
+            get_polygon="polygon",
+            get_fill_color=[14, 165, 233, 18],
+            get_line_color=[15, 23, 42, 240],
+            line_width_min_pixels=3.0,
+            stroked=True,
+            filled=True,
+            pickable=True,
+        ))
+
+    if st.session_state.show_basins and len(filtered) > 0:
+        basin_rings = [
+            {
+                "basin": r_row["Basin"],
+                "hotspot": r_row["Hotspot"],
+                "path": [
+                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) - 0.10],
+                    [float(r_row["lon"]) + 0.14, float(r_row["lat"]) - 0.10],
+                    [float(r_row["lon"]) + 0.14, float(r_row["lat"]) + 0.10],
+                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) + 0.10],
+                    [float(r_row["lon"]) - 0.14, float(r_row["lat"]) - 0.10],
+                ]
+            }
+            for _, r_row in filtered.iterrows()
+        ]
+        map_layers.append(pdk.Layer(
+            "PathLayer",
+            data=basin_rings,
+            get_path="path",
+            get_color=[30, 58, 138, 120],
+            width_min_pixels=1.4,
+            pickable=True,
+        ))
+
+    if st.session_state.show_wadis and len(filtered) > 0:
+        wadi_paths = []
+        for _, r_row in filtered.iterrows():
+            sev_high = r_row["Forecast_Rain"] >= 135
+            w_col = [185, 28, 28, 235] if sev_high else [3, 105, 161, 215]
+            w_px = 4.5 if sev_high else 2.5
+            wadi_paths.append({
+                "basin": r_row["Basin"],
+                "hotspot": r_row["Hotspot"],
+                "arrival": f"{r_row['Arrival_Hours']} س",
+                "w_col": w_col,
+                "w_px": w_px,
+                "path": [
+                    [float(r_row["lon"]) + 0.11, float(r_row["lat"]) + 0.08],
+                    [float(r_row["lon"]), float(r_row["lat"])],
+                    [float(r_row["lon"]) - 0.18, float(r_row["lat"]) - 0.14]
+                ]
+            })
+        map_layers.append(pdk.Layer(
+            "PathLayer",
+            data=wadi_paths,
+            get_path="path",
+            get_color="w_col",
+            get_width="w_px",
+            width_min_pixels=2.0,
+            pickable=True,
+        ))
+
+    if st.session_state.selected_gov == "الكل":
+        view_lat = float(st_row["lat"]) if st.session_state.picked_station != "TA109" else 21.15
+        view_lon = float(st_row["lon"]) if st.session_state.picked_station != "TA109" else 40.55
+        view_zoom = 7.4 if st.session_state.picked_station != "TA109" else 6.7
+    else:
+        view_lat = float(st_row["lat"])
+        view_lon = float(st_row["lon"])
+        view_zoom = 7.6
+
+    deck = pdk.Deck(
+        layers=map_layers,
+        initial_view_state=pdk.ViewState(
+            latitude=view_lat,
+            longitude=view_lon,
+            zoom=view_zoom,
+            pitch=0,
+        ),
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        tooltip={
+            "html": "<b>{Station}</b> ({Governorate})<br/>الحوض: {Basin}<br/>نقطة حرجة: {Hotspot}<br/>{Alert_Level}<br/>القراءة: <b>{Reading_Str}</b> · بعد أقرب محطة: {Dist_Nearest_km} كم",
+            "style": {"backgroundColor": "#091b33", "color": "#ffffff"}
         }
-      },
-      cities: [
-        { key: "taif", name: "الطائف", lat: 21.2703, lon: 40.4158 },
-        { key: "makkah", name: "مكة المكرمة", lat: 21.3891, lon: 39.8579 },
-        { key: "jeddah", name: "جدة", lat: 21.5433, lon: 39.1728 },
-        { key: "bishah", name: "بيشة", lat: 20.0006, lon: 42.5994 },
-        { key: "abha", name: "أبها", lat: 18.2164, lon: 42.5053 }
-      ]
-    };
+    )
+    st.pydeck_chart(deck, use_container_width=True, height=500)
 
-    let activeScenario = "TA109";
-    let liveWeatherMap = {};
+    if "AQI" in map_layer:
+        pos_pct = min(max((avg_aqi / 220.0) * 100.0, 2.0), 98.0)
+        bar_grad = "linear-gradient(90deg,#38bdf8 0%,#a3e635 30%,#facc15 55%,#fb923c 78%,#dc2626 100%)"
+        scale_mid = f"مؤشر جودة الهواء الفعلي: {avg_aqi} AQI ({pos_pct:.0f}%)"
+        leg_html = """
+            <span style="color:#38bdf8;font-weight:700;">■ هواء جيد/مقبول</span>
+            <span style="color:#facc15;font-weight:700;">■ متوسط/غبار خفيف</span>
+            <span style="color:#fb923c;font-weight:700;">■ غير صحي للفئات الحساسة</span>
+            <span style="color:#f87171;font-weight:700;">■ مرتفع / إنذار بيئي</span>
+        """
+    else:
+        pos_pct = min(max((rain_add / 180.0) * 100.0, 2.0), 98.0)
+        bar_grad = "linear-gradient(90deg,#bae6fd 0%,#38bdf8 30%,#1d4ed8 60%,#fb923c 82%,#ef4444 100%)"
+        scale_mid = f"مؤشر محاكاة الهطول: +{rain_add} مم ({pct_boost:+d}% · {storm_hours} س) · {pos_pct:.0f}%"
+        leg_html = """
+            <span style="color:#7dd3fc;font-weight:700;">■ أزرق فاتح/متوسط: هطول منخفض إلى متوسط</span>
+            <span style="color:#3b82f6;font-weight:700;">■ أزرق داكن: مرتفعات وهطول أعلى</span>
+            <span style="color:#fb923c;font-weight:700;">■ برتقالي: حيطة وحذر</span>
+            <span style="color:#f87171;font-weight:700;">■ أحمر: إنذار سيول شديد</span>
+        """
 
-    // خريطة فاتحة متناسقة مع الخلفية البيضاء والهوية الخضراء
-    const map = L.map("map").setView([21.27, 40.41], 7);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap &copy; CARTO",
-      maxZoom: 18
-    }).addTo(map);
+    st.markdown(f"""
+        <div class="legend-strip">{leg_html}</div>
+        <div style="margin-top:10px;background:#081426;border:1px solid #1e3a60;border-radius:8px;padding:10px 12px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1;margin-bottom:8px;font-weight:600;">
+                <span>0 (منخفض)</span>
+                <span style="color:#7dd3fc;">{scale_mid}</span>
+                <span>100% (ذروة)</span>
+            </div>
+            <div style="position:relative;width:100%;height:10px;border-radius:999px;background:{bar_grad};">
+                <div style="position:absolute;top:50%;left:{pos_pct:.1f}%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:#ffffff;border:3px solid #06101e;box-shadow:0 0 0 2px #38bdf8;"></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    const hazardCircle = L.circle([21.27, 40.41], {
-      color: "#0f766e",
-      fillColor: "#10b981",
-      fillOpacity: 0.25,
-      radius: 45000
-    }).addTo(map);
-
-    const stationMarker = L.marker([21.27, 40.41]).addTo(map);
-
-    function renderAhpChart() {
-      const container = d3.select("#ahpChart");
-      container.selectAll("*").remove();
-
-      const width = container.node().clientWidth || 420;
-      const height = 220;
-      const margin = { top: 14, right: 20, bottom: 28, left: 150 };
-
-      const svg = container.append("svg")
-        .attr("width", width)
-        .attr("height", height);
-
-      const x = d3.scaleLinear()
-        .domain([0, 0.45])
-        .range([0, width - margin.left - margin.right]);
-
-      const y = d3.scaleBand()
-        .domain(STATIC_PROJECT_DATA.ahpWeights.map(d => d.criterion))
-        .range([margin.top, height - margin.bottom])
-        .padding(0.28);
-
-      const g = svg.append("g")
-        .attr("transform", `translate(${margin.left}, 0)`);
-
-      g.selectAll("rect")
-        .data(STATIC_PROJECT_DATA.ahpWeights)
-        .enter()
-        .append("rect")
-        .attr("x", 0)
-        .attr("y", d => y(d.criterion))
-        .attr("width", d => x(d.weight))
-        .attr("height", y.bandwidth())
-        .attr("rx", 6)
-        .attr("fill", "#0f766e");
-
-      g.selectAll(".bar-label")
-        .data(STATIC_PROJECT_DATA.ahpWeights)
-        .enter()
-        .append("text")
-        .attr("class", "bar-label")
-        .attr("x", d => x(d.weight) + 6)
-        .attr("y", d => y(d.criterion) + y.bandwidth() / 2 + 4)
-        .attr("fill", "#064e3b")
-        .attr("font-size", "12px")
-        .attr("font-weight", "700")
-        .text(d => `${(d.weight * 100).toFixed(0)}%`);
-
-      svg.append("g")
-        .attr("transform", `translate(${margin.left}, 0)`)
-        .call(d3.axisLeft(y).tickSize(0))
-        .selectAll("text")
-        .attr("fill", "#0f172a")
-        .attr("font-family", "Cairo, sans-serif")
-        .attr("font-size", "12px")
-        .attr("dx", "-6");
-
-      svg.selectAll(".domain, .tick line").attr("stroke", "#cbd5e1");
-    }
-
-    function describeWeatherCode(code) {
-      if (code === 0) return "صحو";
-      if ([1, 2, 3].includes(code)) return "غائم جزئياً / غائم";
-      if ([45, 48].includes(code)) return "ضباب";
-      if ([51, 53, 55, 56, 57].includes(code)) return "رذاذ";
-      if ([61, 63, 65, 80, 81, 82].includes(code)) return "أمطار / زخات";
-      if ([95, 96, 99].includes(code)) return "عواصف رعدية";
-      return "متقلب";
-    }
-
-    async function fetchLiveWeather() {
-      const rows = [];
-      for (const city of STATIC_PROJECT_DATA.cities) {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&daily=precipitation_sum&timezone=auto&forecast_days=7`;
-        try {
-          const res = await fetch(url);
-          const data = await res.json();
-          const cur = data.current || {};
-          const dailyRain = data.daily?.precipitation_sum || [];
-          const todayRain = Number(dailyRain[0] ?? 0);
-          const max7Rain = dailyRain.length ? Math.max(...dailyRain.map(Number)) : 0;
-
-          const item = {
-            name: city.name,
-            condition: describeWeatherCode(cur.weather_code),
-            temp: cur.temperature_2m !== undefined ? `${cur.temperature_2m}°C` : "-",
-            humidity: cur.relative_humidity_2m !== undefined ? `${cur.relative_humidity_2m}%` : "-",
-            wind: cur.wind_speed_10m !== undefined ? `${cur.wind_speed_10m} كم/س` : "-",
-            todayRain,
-            max7Rain
-          };
-          liveWeatherMap[city.key] = item;
-          rows.push(item);
-        } catch (err) {
-          rows.push({
-            name: city.name,
-            condition: "تعذر الجلب",
-            temp: "-",
-            humidity: "-",
-            wind: "-",
-            todayRain: 0,
-            max7Rain: 0
-          });
+with m_side:
+    st.markdown('<div class="card-box"><div class="card-title">مؤشر الخطورة والقابلية</div>', unsafe_allow_html=True)
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=round(avg_risk * 100, 1),
+        number={"suffix": "%", "font": {"size": 24, "color": "#ffffff"}},
+        gauge={
+            "axis": {"range": [0, 100], "tickcolor": "#94b2d6"},
+            "bar": {"color": "#38bdf8"},
+            "bgcolor": "#081426",
+            "steps": [
+                {"range": [0, 35], "color": "#0f294a"},
+                {"range": [35, 65], "color": "#2b2514"},
+                {"range": [65, 100], "color": "#3b1720"}
+            ],
+            "threshold": {"line": {"color": "#f87171", "width": 3}, "value": 75}
         }
-      }
+    ))
+    gauge.update_layout(
+        height=215,
+        margin=dict(l=10, r=10, t=15, b=5),
+        paper_bgcolor="#0c1c34",
+        font={"color": "#e6eef8"}
+    )
+    st.plotly_chart(gauge, use_container_width=True)
+    st.markdown(f'<div class="card-sub" style="text-align:center;">الفارق عن المرجع: {diff_risk*100:+.1f}% · {source_tag}</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-      const tbody = document.getElementById("weatherTableBody");
-      tbody.innerHTML = rows.map(r => {
-        const todayAlert = r.todayRain >= STATIC_PROJECT_DATA.rainThresholdMm ? "rain-alert-cell" : "";
-        const weekAlert = r.max7Rain >= STATIC_PROJECT_DATA.rainThresholdMm ? "rain-alert-cell" : "";
-        return `
-          <tr>
-            <td><strong>${r.name}</strong></td>
-            <td>${r.condition}</td>
-            <td>${r.temp}</td>
-            <td>${r.humidity}</td>
-            <td>${r.wind}</td>
-            <td class="${todayAlert}">${r.todayRain.toFixed(1)}</td>
-            <td class="${weekAlert}">${r.max7Rain.toFixed(1)}</td>
-          </tr>
-        `;
-      }).join("");
+    has_coastal = any(g in coastal_govs for g in filtered["Governorate"])
+    marine_txt = "موج 1.8 م · تيارات ساحلية (جدة/الليث/القنفذة)" if has_coastal else "متابعة الأودية والجريان السطحي"
+    conf_note = "أبعد من 50 كم عن أقرب محطة (ثقة منخفضة)" if bool(top_st["Extrapolated_Low_Conf"]) else "ضمن نطاق تغطية المحطات المباشر"
+    st.markdown(f"""
+        <div class="dark-side-card">
+            <div style="font-size:11px;color:#7dd3fc;font-weight:700;">التنبيه اللحظي ونقطة التقاطع الحرجة</div>
+            <div style="font-size:16px;font-weight:700;margin-top:5px;">{top_st["Alert_Level"]}</div>
+            <div class="alert-banner">
+                <div style="font-size:12px;font-weight:700;color:#ffffff;">{top_st["Station"]} ({top_st["Governorate"]})</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:4px;"><b>الحوض:</b> {top_st["Basin"]}</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:2px;"><b>نقطة حرجة:</b> {top_st["Hotspot"]}</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:2px;"><b>وصول السيل:</b> {top_st["Arrival_Hours"]} س · <b>تشبع التربة:</b> {top_st["Eff_Soil_Sat_Pct"]:.0f}%</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:4px;">{top_st["Advice"]}</div>
+            </div>
+            <div style="font-size:11px;color:#cbd5e1;line-height:1.6;">
+                • <b>البحري والأودية:</b> {marine_txt}<br/>
+                • <b>نطاق الثقة:</b> {conf_note} ({top_st["Dist_Nearest_km"]:.0f} كم)
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-      const nowStr = new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-      document.getElementById("lastSyncPill").innerHTML = `آخر تحديث للطقس: <strong>${nowStr}</strong>`;
-      refreshScenarioCard();
-    }
+# 7) منحنى التوقعات الزمنية ونطاق عدم اليقين + مصفوفة القطاعات
+b_left, b_right = st.columns([2.9, 1.3])
 
-    function setScenario(code) {
-      activeScenario = code;
-      document.querySelectorAll(".sc-btn").forEach(b => b.classList.toggle("active", b.dataset.sc === code));
-      const sc = STATIC_PROJECT_DATA.scenarios[code];
-      map.setView([sc.lat, sc.lng], 8);
-      hazardCircle.setLatLng([sc.lat, sc.lng]);
-      stationMarker.setLatLng([sc.lat, sc.lng]).bindPopup(`${sc.code} - ${sc.basin}`).openPopup();
+with b_left:
+    st.markdown(
+        f'<div class="card-box"><div class="card-title">التوقعات الزمنية ونطاق عدم اليقين (Random Forest vs AHP) · {st_row["Station"]} — {st_row["Basin"]}</div>',
+        unsafe_allow_html=True
+    )
+    if "Nowcasting" in horizon_mode:
+        x_lbl = [f"+{i*2}h" for i in range(13)]
+    elif "14 Days" in horizon_mode:
+        x_lbl = [f"يوم {i+1}" for i in range(14)]
+    else:
+        x_lbl = ["موسم 1 (الربيع)", "موسم 2 (الصيف)", "موسم 3 (الخريف)", "موسم 4 (الشتاء)", "موسم 5", "موسم 6"]
 
-      const slider = document.getElementById("simSlider");
-      slider.value = sc.defaultPct;
-      updateSimulation(sc.defaultPct);
-    }
+    n_pt = len(x_lbl)
+    base_rf = float(st_row["Rain_RF"])
+    base_ahp = float(st_row["Rain_AHP"])
 
-    function refreshScenarioCard() {
-      const sc = STATIC_PROJECT_DATA.scenarios[activeScenario];
-      const w = liveWeatherMap[sc.cityKey];
-      document.getElementById("scenarioCodeLabel").textContent = sc.code;
-      document.getElementById("alertTitle").textContent = sc.station;
-      document.getElementById("alertList").innerHTML = `
-        <li><strong>الحوض:</strong> ${sc.basin}</li>
-        <li><strong>الطقس المباشر الآن:</strong> ${w ? `${w.condition} (${w.temp})` : "جاري القراءة..."}</li>
-        <li><strong>هطول اليوم المتوقع:</strong> ${w ? `${w.todayRain.toFixed(1)} ملم` : "جاري التحديث..."}</li>
-        <li><strong>الإجراء الفوري:</strong> الحذر من جريان السيول في مجاري الأودية</li>
-      `;
-    }
+    y_rf = np.round(base_rf * (0.72 + 0.14 * np.sin(np.linspace(0, 3.14, n_pt)) + np.linspace(0, 0.25, n_pt)), 1)
+    y_ahp = np.round(base_ahp * (0.72 + 0.14 * np.sin(np.linspace(0, 3.14, n_pt)) + np.linspace(0, 0.22, n_pt)), 1)
+    ext_pen = 0.08 if bool(st_row["Extrapolated_Low_Conf"]) else 0.0
+    margin_err = np.round(np.maximum(4.0, y_rf * (0.08 + ext_pen + np.linspace(0.02, 0.12, n_pt))), 1)
+    y_upper = np.round(y_rf + margin_err, 1)
+    y_lower = np.round(np.maximum(0.0, y_rf - margin_err), 1)
 
-    function updateSimulation(val) {
-      const pct = parseFloat(val);
-      const mm = Math.round((pct / 100) * 100);
-      document.getElementById("intensityVal").textContent = `${pct.toFixed(1)}%`;
-      document.getElementById("rainSummaryTop").textContent = `الهطول: +${mm} مم (+${Math.round(pct * 0.6)}%)`;
-      document.getElementById("simSliderLabel").textContent =
-        `مؤشر محاكاة الهطول: +${mm} مم (+${Math.round(pct * 0.6)}% • 6 س)`;
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x_lbl + x_lbl[::-1],
+        y=list(y_upper) + list(y_lower)[::-1],
+        fill="toself",
+        fillcolor="rgba(125, 211, 252, 0.14)",
+        line=dict(color="rgba(255,255,255,0)"),
+        hoverinfo="skip",
+        name="نطاق عدم اليقين (Uncertainty Band)"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=y_rf, mode="lines+markers",
+        name="Random Forest (mm)", line=dict(color="#38bdf8", width=3)
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=y_ahp, mode="lines+markers",
+        name="AHP Model (mm)", line=dict(color="#5eead4", width=2, dash="dot")
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_lbl, y=[165.0]*n_pt, mode="lines",
+        name="عتبة السيول العالية (165 mm)", line=dict(color="#f87171", width=2, dash="dash")
+    ))
+    fig.update_layout(
+        height=235,
+        margin=dict(l=15, r=15, t=15, b=15),
+        paper_bgcolor="#0c1c34",
+        plot_bgcolor="#081426",
+        font={"color": "#cbd5e1"},
+        xaxis=dict(gridcolor="#162c4d"),
+        yaxis=dict(gridcolor="#162c4d")
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(
+        f'<div class="card-sub">قراءات المحطة المفحوصة: <b>{st_row["Station"]}</b> | الهطول: <b>{st_row["Forecast_Rain"]:.1f} mm</b> | المرجع السنوي (1964–2014): <b>{st_row["Hist_Mean_Rain"]:.1f} mm</b> | الجريان: <b>{st_row["Runoff_m3s"]:.1f} m³/s</b> | AQI: <b>{int(st_row["Eff_AQI"])}</b></div>',
+        unsafe_allow_html=True
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-      const badge = document.getElementById("alertBadge");
-      const mBadge = document.getElementById("matrixBadge");
-      const alertBox = document.getElementById("alertBox");
+with b_right:
+    if "أحمر" in top_st["Alert_Level"]:
+        act_water = "تفعيل غرفة الطوارئ وتصريف السدود عند الحد الآمن."
+        act_road = "إغلاق المعابر المنخفضة وبطون الأودية فوراً."
+        act_agri = "إيقاف العمليات الميدانية وحماية الثروة الحيوانية."
+    elif "برتقالي" in top_st["Alert_Level"]:
+        act_water = "رفع جاهزية فرق الصيانة ومراقبة مناسيب الأودية."
+        act_road = "إصدار تنبيهات سرعة ومراقبة الطرق الجبلية والساحلية."
+        act_agri = "تأجيل الرحلات الميدانية وتأمين المعدات الزراعية."
+    else:
+        act_water = "متابعة دورية لمحطات الرصد وتصريف المجاري."
+        act_road = "رصد اعتيادي لحركة المرور والرؤية الأفقية."
+        act_agri = "جدولة الري والطاقة وفق الظروف المناخية الحالية."
 
-      if (pct >= 75) {
-        badge.textContent = "أحمر • إنذار سيول شديد";
-        mBadge.textContent = "أحمر • إنذار سيول شديد";
-        badge.style.background = "#dc2626";
-        mBadge.style.background = "#dc2626";
-        alertBox.style.background = "#fef2f2";
-        alertBox.style.borderColor = "#fecaca";
-        hazardCircle.setStyle({ color: "#dc2626", fillColor: "#ef4444" });
-      } else if (pct >= 45) {
-        badge.textContent = "برتقالي • حيطة وحذر";
-        mBadge.textContent = "برتقالي • حيطة وحذر";
-        badge.style.background = "#d97706";
-        mBadge.style.background = "#d97706";
-        alertBox.style.background = "#fffbeb";
-        alertBox.style.borderColor = "#fde68a";
-        hazardCircle.setStyle({ color: "#d97706", fillColor: "#f59e0b" });
-      } else {
-        badge.textContent = "أخضر زمردي • متابعة أمطار";
-        mBadge.textContent = "أخضر زمردي • متابعة أمطار";
-        badge.style.background = "#0f766e";
-        mBadge.style.background = "#0f766e";
-        alertBox.style.background = "#f0fdf4";
-        alertBox.style.borderColor = "#bbf7d0";
-        hazardCircle.setStyle({ color: "#0f766e", fillColor: "#10b981" });
-      }
+    st.markdown(f"""
+        <div class="card-box">
+            <div class="card-title">مصفوفة الإجراءات ({top_st["Alert_Level"]})</div>
+            <div class="sector-row">
+                <b>السيول والمياه ({avg_runoff:.1f} m³/s):</b> {act_water}
+            </div>
+            <div class="sector-row">
+                <b>الطرق والملاحة ({filtered["Eff_Wind_kmh"].mean():.0f} km/h):</b> {act_road}
+            </div>
+            <div class="sector-row">
+                <b>الزراعة والبيئة (AQI {avg_aqi}):</b> {act_agri}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-      hazardCircle.setRadius(15000 + pct * 550);
-      refreshScenarioCard();
-    }
+exec_summary = (
+    f"RASD | منطقة مكة المكرمة ({st.session_state.selected_gov}) | المحطة: {st_row['Station']} | الإنذار: {top_st['Alert_Level']} | "
+    f"الذروة: {max_rain:.1f} mm ({diff_rain:+.1f} عن المرجع) | الجريان: {avg_runoff:.1f} m³/s | "
+    f"وصول السيل: ~{avg_arrival:.1f} س | AQI: {avg_aqi} | الإجراء: {act_road}"
+)
 
-    renderAhpChart();
-    updateSimulation(84.7);
-    fetchLiveWeather();
-    setInterval(fetchLiveWeather, 15 * 60 * 1000);
-    window.addEventListener("resize", renderAhpChart);
-  </script>
-</body>
-</html>
+st.markdown('<div class="card-box"><div class="card-title">ملخص تنفيذي وتصدير سريع لبيانات منطقة الدراسة</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="summary-box">{exec_summary}</div>', unsafe_allow_html=True)
+
+cols_out = [
+    "Station", "Governorate", "Basin", "Hotspot", "Hist_Mean_Rain",
+    "Elevation_m", "Dist_Nearest_km", "Rain_AHP", "Rain_RF",
+    "Runoff_m3s", "Arrival_Hours", "Eff_AQI", "Susceptibility_Idx", "Alert_Level"
+]
+st.dataframe(filtered[cols_out], use_container_width=True)
+
+ex1, ex2 = st.columns(2)
+ex1.download_button(
+    label="تحميل بيانات السيناريو والمحطات (CSV)",
+    data=filtered[cols_out].to_csv(index=False).encode("utf-8-sig"),
+    file_name="RASD_Makkah_Province_Scenario.csv",
+    mime="text/csv"
+)
+
+excel_rows = "".join(
+    "<tr>" + "".join(f"<td>{val}</td>" for val in row) + "</tr>"
+    for row in filtered[cols_out].values
+)
+excel_headers = "".join(f"<th>{h}</th>" for h in cols_out)
+excel_html = f"<html><head><meta charset='utf-8'></head><body><table border='1'><tr>{excel_headers}</tr>{excel_rows}</table></body></html>"
+ex2.download_button(
+    label="تحميل التقرير بصيغة Excel (.xls)",
+    data=excel_html.encode("utf-8-sig"),
+    file_name="RASD_Makkah_Province_Scenario.xls",
+    mime="application/vnd.ms-excel"
+)
+st.markdown("</div>", unsafe_allow_html=True)
