@@ -1,3 +1,26 @@
+أبشر يا نواف، وضوح المشكلة من الصور الثلاث جداً:
+
+1. في الصورة الأولى، شريط التدرج السفلي تحت الخريطة (`linear-gradient`) طالع كأنه شريط سحب أزرق والنقطة البيضاء عليه يبدو أنها ما تتحرك أو مختفية خلف/مع ستايل ثاني أو أن تدرج الألوان مو واضح بالشكل المطلوب.
+
+
+2. في الصورة الثانية، **الشريط الجانبي السماوي على اليسار** ("لوحة التحكم والسيناريوهات" + الأزرار الجاهزة + السلايدرات الثلاثة) هو اللي تقصده ("الي على اليسار ابغيه وخليه بالعرض فووووق").
+
+
+
+### وش سويت لك بالضبط؟
+
+* **نقلت "لوحة التحكم والسيناريوهات" من اليسار وحطيتها بالعرض فوق في الصفحة الرئيسية:** صارت تضم **زاوية العرض**، و**الأزرار الجاهزة (وضع طبيعي، هطول متوسط، عاصفة غزيرة، سيناريو حرج، Reset)**، و**السلايدرات الثلاثة (محاكاة زيادة الهطول، نسبة تغير الهطول What-If، مدة العاصفة)**، وأخفيت الشريط الجانبي الجانبي عشان المساحة كلها تصير مفتوحة وعريضة فوق.
+
+
+* **صلحت شريط المؤشر اللوني تحت الخريطة وخليته شغال وواضح:** استبدلت عنصر الـ `div` اللي كان يتضارب في ستايله بشريط تدرج لوني دقيق (`#bae6fd -> #38bdf8 -> #1d4ed8 -> #fb923c -> #ef4444`) مع مؤشر دائري أبيض مضاء يتحرك فعلياً حسب قيمة الهطول (`rain_add`) أو `AQI` ويظهر النسبة والقيمة بوضوح.
+
+
+
+---
+
+### كود `app.py` الكامل بعد نقل لوحة التحكم بالعرض فوق وإصلاح المؤشر:
+
+```python
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,39 +31,21 @@ st.set_page_config(
     page_title="RASD — منظومة التنبؤ والإنذار المبكر بالطقس والسيول",
     page_icon="🌊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 st.markdown("""
     <style>
-    /* الواجهة الرئيسية الكحلية */
     .stApp {
         background-color: #06101e;
         color: #e6eef8;
     }
-    /* الشريط الجانبي السماوي */
+    /* إخفاء السايدبار الجانبي لأن التحكم أصبح بالعرض في الأعلى */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #bae6fd 0%, #7dd3fc 55%, #38bdf8 100%);
-        border-right: 1px solid #0284c7;
+        display: none;
     }
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span {
-        color: #062038 !important;
-        font-weight: 600;
-    }
-    section[data-testid="stSidebar"] .stButton > button,
-    section[data-testid="stSidebar"] .stButton > button * {
-        background-color: #071b33 !important;
-        color: #ffffff !important;
-        border: 1px solid #0284c7 !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        width: 100%;
+    button[kind="header"] {
+        display: none;
     }
     .stButton > button,
     .stButton > button * {
@@ -56,7 +61,24 @@ st.markdown("""
         color: #7dd3fc !important;
         border-color: #38bdf8 !important;
     }
-    /* الشريط العلوي الكحلي */
+    /* لوحة التحكم العلوية العريضة */
+    .top-control-panel {
+        background: linear-gradient(135deg, #0b2442 0%, #091b33 60%, #071426 100%);
+        border: 1px solid #255285;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 16px rgba(2, 8, 20, 0.45);
+    }
+    .top-panel-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #7dd3fc;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
     .rasd-header {
         background: linear-gradient(90deg, #091b33 0%, #0e2647 100%);
         border: 1px solid #1d3b66;
@@ -122,7 +144,6 @@ st.markdown("""
         color: #7dd3fc;
         margin-bottom: 5px;
     }
-    /* الصف العلوي: 4 كروت أرقام */
     .top-kpi {
         background-color: #0c1c34;
         border: 1px solid #1b3456;
@@ -182,7 +203,6 @@ st.markdown("""
         color: #94b2d6;
         margin-top: 5px;
     }
-    /* الكروت الوسطى والسفلية */
     .card-box {
         background-color: #0c1c34;
         border: 1px solid #1b3456;
@@ -252,7 +272,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# حدود منطقة مكة المكرمة (منطقة الدراسة)
 makkah_boundary_coords = [
     [38.88, 22.92],
     [39.32, 23.12],
@@ -276,7 +295,6 @@ makkah_boundary_coords = [
     [38.88, 22.92]
 ]
 
-# 26 محطة MEWA مستندة إلى خريطة منطقة مكة المكرمة (1964–2014)
 stations_data = [
     ("J112", "جدة", "أودية شمال جدة", "مجرى وادي شمال جدة الساحلي", 39.42, 23.28, 42.0, 25.0, 32.0, 0.35, 31.0, 68.0, 1011.0, 24.0, 95.0, 68, 7, 56.0),
     ("J140", "جدة", "أودية خليص وثول", "تقاطع وادي خليص مع الطريق الساحلي", 39.28, 22.68, 48.0, 35.0, 38.0, 0.35, 31.5, 70.0, 1010.5, 26.0, 105.0, 72, 8, 42.0),
@@ -313,7 +331,6 @@ df = pd.DataFrame(stations_data, columns=[
     "AQI", "UV_Index", "Dist_Nearest_km"
 ])
 df["Extrapolated_Low_Conf"] = df["Dist_Nearest_km"] > 50.0
-
 coastal_govs = {"جدة", "الليث", "القنفذة"}
 
 defaults = {
@@ -336,6 +353,12 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+def set_scenario(r_val, p_val):
+    st.session_state.rain_sim_val = r_val
+    st.session_state.pct_boost = p_val
+    st.session_state["sl_rain"] = r_val
+    st.session_state["sl_pct"] = p_val
+
 def reset_all_controls():
     st.session_state.selected_gov = "الكل"
     st.session_state.model_mode = "Random Forest"
@@ -345,50 +368,63 @@ def reset_all_controls():
     st.session_state.rain_sim_val = 0
     st.session_state.pct_boost = 0
     st.session_state.storm_hours = 6
+    st.session_state["sl_rain"] = 0
+    st.session_state["sl_pct"] = 0
+    st.session_state["sl_hrs"] = 6
     st.session_state.show_boundary = True
     st.session_state.show_terrain = True
     st.session_state.show_wadis = True
     st.session_state.show_basins = True
     st.session_state.picked_station = "TA109"
 
-# الشريط الجانبي السماوي للتحكم والسيناريوهات
-st.sidebar.header("لوحة التحكم والسيناريوهات")
-aud_choice = st.sidebar.radio(
-    "زاوية العرض",
-    ["للجهة والقطاعات (Technical)", "للفرد والسكان (Public)"],
-    index=0 if st.session_state.audience_mode.startswith("للجهة") else 1
-)
-st.session_state.audience_mode = aud_choice
+# 1) لوحة التحكم والسيناريوهات بالعرض فوق
+st.markdown('<div class="top-control-panel"><div class="top-panel-title"><span>لوحة التحكم والسيناريوهات</span><span style="font-size:11px;color:#9cb8dc;">تحكم مباشر بالعرض الكامل</span></div>', unsafe_allow_html=True)
 
-st.sidebar.markdown("**سيناريوهات جاهزة + Reset:**")
-sb1, sb2 = st.sidebar.columns(2)
-if sb1.button("وضع طبيعي", key="sb_norm"):
-    st.session_state.rain_sim_val = 0
-    st.session_state.pct_boost = 0
-if sb2.button("هطول متوسط", key="sb_mod"):
-    st.session_state.rain_sim_val = 40
-    st.session_state.pct_boost = 15
+top_c1, top_c2, top_c3 = st.columns([1.2, 2.2, 2.2])
 
-sb3, sb4 = st.sidebar.columns(2)
-if sb3.button("عاصفة غزيرة", key="sb_heavy"):
-    st.session_state.rain_sim_val = 95
-    st.session_state.pct_boost = 35
-if sb4.button("سيناريو حرج", key="sb_crit"):
-    st.session_state.rain_sim_val = 155
-    st.session_state.pct_boost = 60
+with top_c1:
+    st.markdown('<div class="bar-label">زاوية العرض</div>', unsafe_allow_html=True)
+    aud_choice = st.radio(
+        "زاوية العرض",
+        ["للجهة والقطاعات (Technical)", "للفرد والسكان (Public)"],
+        index=0 if st.session_state.audience_mode.startswith("للجهة") else 1,
+        label_visibility="collapsed",
+        key="top_aud_radio"
+    )
+    st.session_state.audience_mode = aud_choice
 
-if st.sidebar.button("إعادة ضبط سريعة (Reset)", key="sb_reset"):
-    reset_all_controls()
+with top_c2:
+    st.markdown('<div class="bar-label">سيناريوهات جاهزة + Reset</div>', unsafe_allow_html=True)
+    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+    if sc1.button("وضع طبيعي", key="top_sb_norm"):
+        set_scenario(0, 0)
+        st.rerun()
+    if sc2.button("هطول متوسط", key="top_sb_mod"):
+        set_scenario(40, 15)
+        st.rerun()
+    if sc3.button("عاصفة غزيرة", key="top_sb_heavy"):
+        set_scenario(95, 35)
+        st.rerun()
+    if sc4.button("سيناريو حرج", key="top_sb_crit"):
+        set_scenario(155, 60)
+        st.rerun()
+    if sc5.button("Reset", key="top_sb_reset"):
+        reset_all_controls()
+        st.rerun()
 
-st.session_state.rain_sim_val = st.sidebar.slider(
-    "محاكاة زيادة الهطول (مم)", 0, 180, int(st.session_state.rain_sim_val), 5
-)
-st.session_state.pct_boost = st.sidebar.slider(
-    "نسبة تغير الهطول What-If (%)", -20, 100, int(st.session_state.pct_boost), 5
-)
-st.session_state.storm_hours = st.sidebar.slider(
-    "مدة العاصفة / الهطول (ساعات)", 2, 24, int(st.session_state.storm_hours), 2
-)
+with top_c3:
+    sl1, sl2, sl3 = st.columns(3)
+    st.session_state.rain_sim_val = sl1.slider(
+        "زيادة الهطول (مم)", 0, 180, int(st.session_state.rain_sim_val), 5, key="sl_rain"
+    )
+    st.session_state.pct_boost = sl2.slider(
+        "What-If الهطول (%)", -20, 100, int(st.session_state.pct_boost), 5, key="sl_pct"
+    )
+    st.session_state.storm_hours = sl3.slider(
+        "مدة العاصفة (ساعات)", 2, 24, int(st.session_state.storm_hours), 2, key="sl_hrs"
+    )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer, h_type):
     out = base_df.copy()
@@ -527,7 +563,7 @@ source_tag = (
     else f"+{rain_add} مم · ({pct_boost:+d}% / {storm_hours} س)"
 )
 
-# 1) الشريط العلوي الرئيسي
+# 2) الشريط العلوي الرئيسي
 st.markdown(f"""
     <div class="rasd-header">
         <div>
@@ -544,7 +580,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 2) شريط المناطق التفاعلي بالعرض الكامل في الأعلى
+# 3) شريط المناطق التفاعلي بالعرض الكامل
 st.markdown('<div class="full-region-bar"><div class="bar-label">نطاقات منطقة مكة المكرمة (نقرة واحدة لتحديث اللوحة والمنطقة والإنذار)</div>', unsafe_allow_html=True)
 gov_buttons = ["الكل", "مكة المكرمة", "جدة", "الطائف", "الليث", "القنفذة"]
 g_cols = st.columns(len(gov_buttons))
@@ -574,7 +610,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 3) أزرار التبديل المباشرة للنموذج والأفق والظاهرة والمؤشر
+# 4) أزرار التبديل المباشرة للنموذج والأفق والظاهرة والمؤشر
 r2_1, r2_2, r2_3, r2_4 = st.columns([1.2, 1.4, 1.3, 1.3])
 with r2_1:
     st.markdown('<div class="bar-label">النموذج</div>', unsafe_allow_html=True)
@@ -621,7 +657,7 @@ with r2_4:
 
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-# 4) الصف الأول: 4 كروت أرقام
+# 5) الصف الأول: 4 كروت أرقام
 trend_rain_cls = "trend-up" if diff_rain > 2 else ("trend-down" if diff_rain < -2 else "trend-flat")
 trend_rain_lbl = f"↑ +{diff_rain:.1f} mm" if diff_rain > 2 else (f"↓ {diff_rain:.1f} mm" if diff_rain < -2 else "→ 0.0 mm")
 
@@ -684,7 +720,7 @@ if audience_mode.startswith("للفرد"):
         </div>
     """, unsafe_allow_html=True)
 
-# 5) الصف الأوسط: خريطة منطقة الدراسة الفعّالة + مؤشر الخطورة وبطاقة الإنذار
+# 6) الصف الأوسط: خريطة منطقة الدراسة الفعّالة + مؤشر الخطورة وبطاقة الإنذار
 m_center, m_side = st.columns([2.65, 1.35])
 
 with m_center:
@@ -707,7 +743,6 @@ with m_center:
         st.session_state.show_basins = not st.session_state.show_basins
         st.rerun()
 
-    # اختيار سريع متزامن لأي محطة من النطاق الحالي ليتركز عليها المؤشر والمنحنى
     st_options = [
         f"{r['Station']} — {r['Basin']} ({r['Governorate']} | {r['Reading_Str']})"
         for _, r in filtered.iterrows()
@@ -894,10 +929,11 @@ with m_center:
     )
     st.pydeck_chart(deck, use_container_width=True, height=500)
 
+    # مؤشر التدرج الفعّال تحت الخريطة
     if "AQI" in map_layer:
-        sim_pct = min(max((avg_aqi / 220.0) * 100.0, 2.0), 100.0)
+        pos_pct = min(max((avg_aqi / 220.0) * 100.0, 2.0), 98.0)
         bar_grad = "linear-gradient(90deg,#38bdf8 0%,#a3e635 30%,#facc15 55%,#fb923c 78%,#dc2626 100%)"
-        scale_mid = f"متوسط جودة الهواء الحالي: {avg_aqi} AQI"
+        scale_mid = f"مؤشر جودة الهواء الفعلي: {avg_aqi} AQI ({pos_pct:.0f}%)"
         leg_html = """
             <span style="color:#38bdf8;font-weight:700;">■ هواء جيد/مقبول</span>
             <span style="color:#facc15;font-weight:700;">■ متوسط/غبار خفيف</span>
@@ -905,9 +941,9 @@ with m_center:
             <span style="color:#f87171;font-weight:700;">■ مرتفع / إنذار بيئي</span>
         """
     else:
-        sim_pct = min(max((rain_add / 180.0) * 100.0, 2.0), 100.0)
+        pos_pct = min(max((rain_add / 180.0) * 100.0, 2.0), 98.0)
         bar_grad = "linear-gradient(90deg,#bae6fd 0%,#38bdf8 30%,#1d4ed8 60%,#fb923c 82%,#ef4444 100%)"
-        scale_mid = f"محاكاة الهطول: +{rain_add} مم ({pct_boost:+d}% · {storm_hours} س)"
+        scale_mid = f"مؤشر محاكاة الهطول: +{rain_add} مم ({pct_boost:+d}% · {storm_hours} س) · {pos_pct:.0f}%"
         leg_html = """
             <span style="color:#7dd3fc;font-weight:700;">■ أزرق فاتح/متوسط: هطول منخفض إلى متوسط</span>
             <span style="color:#3b82f6;font-weight:700;">■ أزرق داكن: مرتفعات وهطول أعلى</span>
@@ -917,14 +953,14 @@ with m_center:
 
     st.markdown(f"""
         <div class="legend-strip">{leg_html}</div>
-        <div style="margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#94b2d6;margin-bottom:4px;">
-                <span>منخفض</span>
-                <span>{scale_mid}</span>
-                <span>مرتفع</span>
+        <div style="margin-top:10px;background:#081426;border:1px solid #1e3a60;border-radius:8px;padding:10px 12px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1;margin-bottom:8px;font-weight:600;">
+                <span>0 (منخفض)</span>
+                <span style="color:#7dd3fc;">{scale_mid}</span>
+                <span>100% (ذروة)</span>
             </div>
-            <div style="position:relative;height:7px;border-radius:999px;background:{bar_grad};">
-                <div style="position:absolute;top:-3px;left:calc({sim_pct:.1f}% - 6px);width:13px;height:13px;border-radius:50%;background:#ffffff;border:2px solid #06101e;"></div>
+            <div style="position:relative;width:100%;height:10px;border-radius:999px;background:{bar_grad};">
+                <div style="position:absolute;top:50%;left:{pos_pct:.1f}%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:#ffffff;border:3px solid #06101e;box-shadow:0 0 0 2px #38bdf8;"></div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -979,7 +1015,7 @@ with m_side:
         </div>
     """, unsafe_allow_html=True)
 
-# 6) منحنى التوقعات الزمنية ونطاق عدم اليقين + مصفوفة القطاعات
+# 7) منحنى التوقعات الزمنية ونطاق عدم اليقين + مصفوفة القطاعات
 b_left, b_right = st.columns([2.9, 1.3])
 
 with b_left:
@@ -1109,3 +1145,7 @@ ex2.download_button(
     mime="application/vnd.ms-excel"
 )
 st.markdown("</div>", unsafe_allow_html=True)
+
+```
+
+انسخ الكود إلى `app.py` وجرّب تحريك السلايدر أو الضغط على سيناريو جاهز وشف كيف يتحرك المؤشر اللوني تحت الخريطة ولوحة التحكم صارت بالعرض فوق.
