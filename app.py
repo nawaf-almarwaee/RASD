@@ -293,7 +293,6 @@ df = pd.DataFrame({
     "UV_Index": np.random.randint(3, 11, n_stations),
 })
 
-# تهيئة الحالة التفاعلية المباشرة
 defaults = {
     "audience_mode": "للجهة والقطاعات (Technical)",
     "selected_gov": "الكل",
@@ -328,11 +327,12 @@ def reset_all_controls():
 
 # الشريط الجانبي السماوي للتحكم والسيناريوهات
 st.sidebar.header("لوحة التحكم والسيناريوهات")
-if st.sidebar.radio("زاوية العرض", ["للجهة والقطاعات (Technical)", "للفرد والسكان (Public)"],
-                   index=0 if st.session_state.audience_mode.startswith("للجهة") else 1) == "للجهة والقطاعات (Technical)":
-    st.session_state.audience_mode = "للجهة والقطاعات (Technical)"
-else:
-    st.session_state.audience_mode = "للفرد والسكان (Public)"
+aud_choice = st.sidebar.radio(
+    "زاوية العرض",
+    ["للجهة والقطاعات (Technical)", "للفرد والسكان (Public)"],
+    index=0 if st.session_state.audience_mode.startswith("للجهة") else 1
+)
+st.session_state.audience_mode = aud_choice
 
 st.sidebar.markdown("**سيناريوهات جاهزة + Reset:**")
 sb1, sb2 = st.sidebar.columns(2)
@@ -364,8 +364,7 @@ st.session_state.storm_hours = st.sidebar.slider(
     "مدة العاصفة / الهطول (ساعات)", 2, 24, int(st.session_state.storm_hours), 2
 )
 
-# حساب الحالة الأساسية (الوضع الطبيعي) والحالة المجرّبة
-def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer):
+def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer, h_type):
     out = base_df.copy()
     h_mult = 1.0 if "Nowcasting" in h_mode else (1.15 if "14 Days" in h_mode else 1.25)
     dur_factor = 0.75 + (dur_hrs / 12.0) * 0.45
@@ -380,10 +379,16 @@ def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer
     out["Runoff_m3s"] = np.round(out["Forecast_Rain"] * runoff_coeff * (1.2 + out["Elevation_m"] / 1600.0), 1)
     out["Arrival_Hours"] = np.round(np.clip(6.5 - (out["Forecast_Rain"] / 55.0) + (out["Elevation_m"] / 1400.0), 1.2, 8.5), 1)
 
-    # ربط العواصف والرياح والغبار بجودة الهواء AQI
-    storm_boost = 1.0 if "الأمطار" in st.session_state.hazard_type else 1.35
-    out["Eff_Wind_kmh"] = np.round(out["Wind_kmh"] * (1.0 + (rain_extra / 240.0) + (0.20 if "العواصف" in st.session_state.hazard_type else 0.0)), 0)
-    out["Eff_Dust_ugm3"] = np.round(np.maximum(15.0, out["Dust_ugm3"] * (1.0 + (out["Eff_Wind_kmh"] - 25.0) / 80.0) * (0.72 if out["Forecast_Rain"] > 50 else 1.0)), 0)
+    storm_boost = 1.0 if "الأمطار" in h_type else 1.35
+    washout_factor = np.where(out["Forecast_Rain"] > 50.0, 0.72, 1.0)
+    out["Eff_Wind_kmh"] = np.round(
+        out["Wind_kmh"] * (1.0 + (rain_extra / 240.0) + (0.20 if "العواصف" in h_type else 0.0)),
+        0
+    )
+    out["Eff_Dust_ugm3"] = np.round(
+        np.maximum(15.0, out["Dust_ugm3"] * (1.0 + (out["Eff_Wind_kmh"] - 25.0) / 80.0) * washout_factor),
+        0
+    )
     out["Eff_AQI"] = np.clip(
         np.round(out["AQI"] * 0.55 + (out["Eff_Dust_ugm3"] * 0.45) * storm_boost - (out["Forecast_Rain"] * 0.12)),
         18,
@@ -400,8 +405,8 @@ def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer
     out["Dew_Point_C"] = np.round(out["Temp_C"] - ((100.0 - out["Humidity_Pct"]) / 5.0), 1)
 
     def _row_meta(r_item):
-        rain_v = r_item["Forecast_Rain"]
-        susc_v = r_item["Susceptibility_Idx"]
+        rain_v = float(r_item["Forecast_Rain"])
+        susc_v = float(r_item["Susceptibility_Idx"])
         if rain_v < 45 and susc_v < 0.45:
             a_lbl, t_col = "أزرق · مستقر", [3, 105, 161, 255]
             adv_txt = "حالة مستقرة؛ متابعة اعتيادية للأجواء ومجاري الأودية."
@@ -424,7 +429,7 @@ def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer
             w_val = min(w_spd / 70.0, 1.0)
             read_txt = f"{w_spd:.0f} km/h"
         else:
-            w_val = min(float(rain_v) / 180.0, 1.0)
+            w_val = min(rain_v / 180.0, 1.0)
             read_txt = f"{rain_v:.1f} mm"
 
         return a_lbl, t_col, adv_txt, w_val, read_txt, f"{r_item['Governorate']} · {read_txt}"
@@ -438,7 +443,13 @@ def compute_hydro(base_df, rain_extra, pct_chg, dur_hrs, h_mode, m_mode, m_layer
     out["Map_Label"] = [x[5] for x in meta_res]
     return out
 
-baseline_df = compute_hydro(df, 0, 0, 6, "التنبؤ الآني (Nowcasting - 24h)", "Random Forest", "الهطول والإنذار (مم)")
+baseline_df = compute_hydro(
+    df, 0, 0, 6,
+    "التنبؤ الآني (Nowcasting - 24h)",
+    "Random Forest",
+    "الهطول والإنذار (مم)",
+    "الأمطار الغزيرة والسيول"
+)
 sim_all_df = compute_hydro(
     df,
     st.session_state.rain_sim_val,
@@ -446,7 +457,8 @@ sim_all_df = compute_hydro(
     st.session_state.storm_hours,
     st.session_state.horizon_mode,
     st.session_state.model_mode,
-    st.session_state.map_layer
+    st.session_state.map_layer,
+    st.session_state.hazard_type
 )
 
 if st.session_state.selected_gov == "الكل":
@@ -466,7 +478,6 @@ avg_arrival = filtered["Arrival_Hours"].mean()
 avg_aqi = int(filtered["Eff_AQI"].mean())
 severe_cnt = int((filtered["Forecast_Rain"] >= 80).sum())
 
-# الفروقات الرقمية المباشرة مقارنة بالوضع الطبيعي
 diff_rain = avg_rain - base_filt["Forecast_Rain"].mean()
 diff_runoff = avg_runoff - base_filt["Runoff_m3s"].mean()
 diff_risk = avg_risk - base_filt["Susceptibility_Idx"].mean()
@@ -482,7 +493,7 @@ pct_boost = st.session_state.pct_boost
 storm_hours = st.session_state.storm_hours
 
 source_tag = (
-    f"الوضع الطبيعي (1964–2014)"
+    "الوضع الطبيعي (1964–2014)"
     if (rain_add == 0 and pct_boost == 0 and storm_hours == 6)
     else f"+{rain_add} مم · ({pct_boost:+d}% / {storm_hours} س)"
 )
@@ -519,7 +530,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 2) أزرار التبديل المباشرة في نفس الصفحة (بدل القوائم المنسدلة)
+# 2) أزرار التبديل المباشرة في نفس الصفحة
 r1_a, r1_b, r1_c = st.columns([2.2, 1.4, 1.6])
 
 with r1_a:
@@ -583,7 +594,7 @@ with r2_b:
 
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-# 3) الصف الأول: 4 كروت أرقام مع مؤشرات اتجاه التغير والفارق عن الوضع الطبيعي
+# 3) الصف الأول: 4 كروت أرقام
 trend_rain_cls = "trend-up" if diff_rain > 2 else ("trend-down" if diff_rain < -2 else "trend-flat")
 trend_rain_lbl = f"↑ +{diff_rain:.1f} mm" if diff_rain > 2 else (f"↓ {diff_rain:.1f} mm" if diff_rain < -2 else "→ 0.0 mm")
 
@@ -635,7 +646,6 @@ else:
 
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-# رسالة الجمهور المباشرة عند اختيار وضع الفرد/السكان
 if audience_mode.startswith("للفرد"):
     st.markdown(f"""
         <div class="public-box">
@@ -647,7 +657,7 @@ if audience_mode.startswith("للفرد"):
         </div>
     """, unsafe_allow_html=True)
 
-# 4) الصف الأوسط: المؤشر الدائري + الخريطة الفاتحة بطبقاتها المباشرة + بطاقة الإنذار
+# 4) الصف الأوسط: المؤشر الدائري + الخريطة الفاتحة + بطاقة الإنذار
 m_left, m_center, m_right = st.columns([1.05, 2.05, 1.2])
 
 with m_left:
@@ -681,7 +691,6 @@ with m_left:
 with m_center:
     st.markdown(f'<div class="card-box"><div class="card-title">خريطة تفاعلية فاتحة بالقراءات اللونية · {map_layer}</div>', unsafe_allow_html=True)
 
-    # مفاتيح تشغيل مباشرة فوق الخريطة للتضاريس الجبلية، مسار الأودية، والأحواض
     t_col1, t_col2, t_col3 = st.columns(3)
     if t_col1.button(("● " if st.session_state.show_terrain else "○ ") + "التضاريس الجبلية", key="btn_l_terr"):
         st.session_state.show_terrain = not st.session_state.show_terrain
@@ -727,7 +736,6 @@ with m_center:
         )
     ]
 
-    # طبقة التضاريس الجبلية (ربط المرتفعات بمناطق التجمع)
     if st.session_state.show_terrain and len(filtered) > 0:
         high_elev = filtered[filtered["Elevation_m"] >= 600.0]
         if len(high_elev) > 0:
@@ -744,7 +752,6 @@ with m_center:
                 pickable=True,
             ))
 
-    # طبقة الأحواض المائية
     if st.session_state.show_basins and len(filtered) > 0:
         basin_rings = [
             {
@@ -769,7 +776,6 @@ with m_center:
             pickable=True,
         ))
 
-    # طبقة مسارات الأودية ونقاط التقاطع الحرجة (تتغير سماكتها ولونها حسب الشدة والسيناريو)
     if st.session_state.show_wadis and len(filtered) > 0:
         wadi_paths = []
         for _, r_row in filtered.iterrows():
@@ -963,7 +969,6 @@ with b_right:
         </div>
     """, unsafe_allow_html=True)
 
-# 6) ملخص تنفيذي سريع وتصدير CSV / Excel
 exec_summary = (
     f"RASD | النطاق: {st.session_state.selected_gov} | الإنذار: {top_st['Alert_Level']} | "
     f"الذروة: {max_rain:.1f} mm ({diff_rain:+.1f} عن الطبيعي) | الجريان: {avg_runoff:.1f} m³/s | "
@@ -988,7 +993,6 @@ ex1.download_button(
     mime="text/csv"
 )
 
-# تصدير بصيغة Excel (.xls متوافق مع Excel)
 excel_rows = "".join(
     "<tr>" + "".join(f"<td>{val}</td>" for val in row) + "</tr>"
     for row in filtered[cols_out].values
