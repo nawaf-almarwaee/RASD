@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{
-  --bg:#edf3f2; --card:#fbfdfc; --line:#e1ebe9; --ink:#10262a; --ink2:#4b6366; --muted:#7d9194;
+  --bg:#d9e5e3; --card:#fbfdfc; --line:#d3e0de; --ink:#10262a; --ink2:#4b6366; --muted:#7d9194;
   --teal:#12a39a; --teal2:#0e8a82; --tealSoft:#dff3f0; --head:#0c4449; --head2:#0a393d;
   --dark1:#0f4c52; --dark2:#0a3439; --yellow:#f6d167; --yellow2:#f3c33f;
   --ok:#14a37f; --warn:#e7a321; --bad:#e04b55;
@@ -95,8 +95,10 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
 .stage.tilt .leaflet-control-container{display:none}
 .radarT{position:absolute;bottom:10px;inset-inline-start:10px;z-index:900;background:rgba(12,62,67,.88);color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;display:none}
 .radarT.on{display:block}
-.rlegend{display:none;align-items:center;justify-content:center;margin-top:8px;font-size:10.5px;color:var(--ink2);direction:ltr}
-.rlegend.on{display:flex}
+.legrow{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:11.5px;color:var(--ink2);flex-wrap:wrap}
+.legrow>b{font-weight:600;color:var(--ink);font-size:11.5px}
+.legrow.off{display:none}
+.rlegend{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--ink2);direction:ltr}
 .rlegend span{display:flex;flex-direction:column;align-items:center;gap:2px}
 .rlegend i{display:block;width:34px;height:9px}
 .rlegend span:first-child i{border-radius:5px 0 0 5px}.rlegend span:last-child i{border-radius:0 5px 5px 0}
@@ -110,16 +112,18 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
 .leaflet-tooltip.callout b{font-size:12px}
 .leaflet-tooltip.callout .m{color:var(--muted);font-size:10.5px}
 .leaflet-tooltip.callout.rain{border-color:#9fd3e8;background:#effaff}
-.leaflet-tooltip.wlab{background:none;border:0;box-shadow:none;color:#1559a8;font-weight:600;font-size:11px;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;padding:0}
+.leaflet-tooltip.clab{background:none;border:0;box-shadow:none;color:#0c3e43;font-weight:700;font-size:10.5px;padding:0;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
+.leaflet-tooltip.clab::before{display:none}
+.leaflet-tooltip.wlab{background:none;border:0;box-shadow:none;color:#1559a8;font-weight:600;font-size:9.5px;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;padding:0}
 .leaflet-tooltip.wlab::before{display:none}
 .lowz .leaflet-tooltip.wlab{display:none}
 .leaflet-popup-content{font-size:12.5px;line-height:1.6;margin:10px 14px}
 .leaflet-popup-content b{font-size:13.5px}
-.pulse{width:14px;height:14px;border-radius:50%;background:var(--head);border:3px solid #fff;box-shadow:0 0 0 0 rgba(18,163,154,.6);animation:pulse 2s infinite}
+.pulse{width:12px;height:12px;border-radius:50%;background:var(--head);border:3px solid #fff;box-shadow:0 0 0 0 rgba(18,163,154,.6);animation:pulse 2s infinite}
 .pulse.r1{background:var(--warn)}.pulse.r2{background:var(--bad);animation-duration:1s}
 .pulse.sel{width:18px;height:18px;outline:2px solid var(--teal)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(18,163,154,.55)}70%{box-shadow:0 0 0 14px rgba(18,163,154,0)}100%{box-shadow:0 0 0 0 rgba(18,163,154,0)}}
-.fmk{width:24px;height:24px;border-radius:7px;background:#fff;border:2px solid var(--bad);display:grid;place-items:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.fmk{width:18px;height:18px;border-radius:5px;background:#fff;border:1.5px solid var(--bad);display:grid;place-items:center;font-size:10px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 .fmk.st{border-color:#3a8ade}
 .wmk{width:12px;height:12px;border-radius:50%;background:#3a8ade;border:2px solid #fff;box-shadow:0 0 0 2px rgba(58,138,222,.35)}
 
@@ -178,6 +182,14 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
 .fac .r{width:22px;height:22px;border-radius:50%;background:var(--tealSoft);color:var(--teal2);font-size:11px;font-weight:700;display:grid;place-items:center}
 .fac .nm{font-size:13px;font-weight:600}
 .fac .gp{font-size:11px;color:var(--muted);font-weight:400}
+.fac .rf{font-size:10px;color:#3a8ade;font-weight:600}
+.refs{font-size:12px;line-height:1.7;color:var(--ink2);padding-inline-start:18px}
+.refs li{margin-bottom:4px;direction:ltr;text-align:left}
+.team{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:10px}
+.team div{background:#f2f8f7;border-radius:12px;padding:12px 14px}
+.team .r{font-size:11.5px;color:var(--muted)}
+.team .n{font-weight:600;font-size:14px;margin-top:2px}
+.credit{text-align:center;font-size:12px;color:var(--muted);margin-top:16px;line-height:1.8}
 .fac .bw{height:5px;background:#eaf1f0;border-radius:3px;margin-top:4px;overflow:hidden}
 .fac .bw i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),#3cc3b6);border-radius:3px}
 .fac .w{font-weight:700;font-size:13px;text-align:end}
@@ -329,13 +341,14 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
         <button class="chip on" data-l="st">● <span data-i="lSt">المحطات</span></button>
         <button class="chip on" data-l="wadi">〰 <span data-i="lWadi">الأودية</span></button>
         <button class="chip on" data-l="fl">⚠ <span data-i="lFl">السيول التاريخية</span></button>
-        <button class="chip" data-l="radar">📡 <span data-i="lRadar">رادار حي</span></button>
+        <button class="chip" data-l="radar" id="radarChip">📡 <span data-i="lRadar">رادار حي (RainViewer)</span></button>
         <button class="chip" data-l="fsi" id="fsiChip">▦ <span data-i="lFsi">قابلية السيول FSI</span></button>
       </div>
       <div class="stage" id="stage"><div class="shadow"></div><div id="map"></div><div class="radarT" id="radarT"></div></div>
-      <div class="rlegend on" id="rLegend"></div>
+      <div class="legrow" id="rLegRow"><b data-i="legRain">الأمطار المتوقعة (ملم):</b><div class="rlegend" id="rLegend"></div></div>
       <div class="legend" id="fsiLegend" style="display:none"></div>
-      <div class="legend"><span data-i="lessR">أمطار أقل</span><span class="bar"></span><span data-i="moreR">أمطار أعلى</span><span style="color:var(--muted)" data-i="stCol">· لون المحطة = المعدل السنوي</span></div>
+      <div class="legrow"><b data-i="legSt">المعدل السنوي للأمطار في المحطات (ملم):</b><span style="direction:ltr;display:inline-flex;gap:8px;align-items:center"><span class="num">35</span><span class="legend" style="margin:0"><span class="bar"></span></span><span class="num">270</span></span></div>
+      <div class="legrow"><b data-i="legRisk">درجة الخطورة في المدن:</b><span><i class="pulse" style="display:inline-block;animation:none;vertical-align:middle"></i> <span data-i="lv0">آمن</span></span><span><i class="pulse r1" style="display:inline-block;animation:none;vertical-align:middle"></i> <span data-i="lv1">مراقبة</span></span><span><i class="pulse r2" style="display:inline-block;animation:none;vertical-align:middle"></i> <span data-i="lv2">خطر</span></span></div>
     </div>
 
     <div class="card dark">
@@ -382,6 +395,7 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
     <div class="sub" data-i="evSub">🔴 سيول موثّقة في المصادر · 🔵 أعلى هطول يومي مسجّل في محطات الوزارة. اضغط على الحدث لعرضه على الخريطة.</div>
     <div class="tl" id="tl"></div>
   </div>
+  <div class="credit" id="credit"></div>
 </section>
 
 <section class="page" id="p-rain">
@@ -430,7 +444,11 @@ select{border:1px solid var(--line);background:#f3f8f7;border-radius:9px;padding
       <div class="ditem"><div class="di">RI</div><div><div class="k" data-i="ri">المؤشر العشوائي لـ n = 10</div><div class="vv num">1.49</div></div></div>
     </div>
   </div>
-  <div class="card"><h3 style="margin-bottom:8px" data-i="progH">تقدّم العمل في المشروع</h3><table class="ptab" id="ptab"></table></div>
+  <div class="card" style="margin-bottom:14px"><h3 data-i="refH">مبررات اختيار العوامل ومصادرها</h3><div class="sub" data-i="refSub"></div>
+    <table class="tbl" id="refTable" style="margin-top:10px"></table>
+    <h3 style="font-size:15px;margin-top:16px" data-i="refList">المراجع</h3><ol class="refs" id="refOl"></ol></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="margin-bottom:8px" data-i="progH">تقدّم العمل في المشروع</h3><table class="ptab" id="ptab"></table></div>
+  <div class="card"><h3 data-i="teamH">فريق المشروع</h3><div class="team" id="team"></div></div>
 </section>
 </main>
 
@@ -453,6 +471,13 @@ window.FD_RAIN=[{"code":"J102","name":"Bahrah Al-Jadidah","gov":"Jeddah Governor
 <script>
 const D = window.FD_DATA, R = window.FD_RAIN, GUM = window.FD_GUMBEL;
 const SITE_URL = 'https://nawaf-almarwaee.github.io/RASD/';
+// ✏️ team — edit names here
+const TEAM = [
+ {role:['المشرف','Supervisor'], name:['د. [اسم المشرف]','Dr. [Supervisor name]']},
+ {role:['عضو الفريق','Team member'], name:['نواف يحيى المروعي','Nawaf Yahya Almarwaee']},
+ {role:['عضو الفريق','Team member'], name:['[اسم الزميل]','[Member name]']},
+ {role:['عضو الفريق','Team member'], name:['[اسم الزميل]','[Member name]']}
+];
 const $ = id => document.getElementById(id);
 let LANG = 'ar';
 try{ LANG = localStorage.getItem('rasd_lang') || 'ar'; }catch(e){}
@@ -469,7 +494,7 @@ const MON = i => (LANG==='en'?MONTHS_EN:MONTHS_AR)[i];
 const SUSC = {'Jeddah':5,'Makkah':4,'Taif':3,'Rabigh':4,'Khulais':4,'Thuwal':3,'Al-Lith':5,'Al-Qunfudhah':4,'Al-Bahah':3,'Turabah':3,'Ranyah':3,'Al-Khurmah':3,'Bishah':3};
 const CITIES = D.towns.map(x=>({ar:x.town_ar, en:x.town, lat:x.lat, lon:x.lon, s:SUSC[x.town]||3}));
 const CN = c => LANG==='en' ? c.en : c.ar;
-const MAJOR = {'Jeddah':'left','Makkah':'bottom','Taif':'right','Al-Bahah':'right','Al-Qunfudhah':'left','Rabigh':'left'};
+const MAJOR = {'Jeddah':'left','Makkah':'bottom','Taif':'right','Al-Bahah':'right','Al-Qunfudhah':'left','Rabigh':'left','Thuwal':'left','Khulais':'right','Al-Lith':'left'};
 const LV = mm => mm>=25 ? 'alert' : mm>=10 ? 'watch' : 'ok';
 const LVTXT = () => ({ok:t('ضمن الحد الآمن','Within safe limit'), watch:t('مراقبة','Watch'), alert:t('تنبيه سيول','Flood alert')});
 const rainColor = d3.scaleLinear().domain([35,90,150,210,270]).range(['#12a39a','#7cc6a0','#f2c14e','#ef8b45','#e04b4b']).clamp(true);
@@ -484,8 +509,9 @@ const I18N = {
  gFoot:['مجموع 24 ساعة القادمة · مقياس 0–50 ملم','Next 24 h total · 0–50 mm scale'], mapH:['منطقة الدراسة / خريطة تفاعلية','Study area / interactive map'],
  bLight:['فاتحة','Light'], bTopo:['تضاريس','Terrain'], bSat:['قمر صناعي','Satellite'], rainFc:['🌧️ الأمطار المتوقعة:','🌧️ Forecast rain:'],
  off:['إيقاف','Off'], today:['اليوم','Today'], tmrw:['غداً','Tomorrow'], aftr:['بعد غد','Day 3'], week:['7 أيام','7 days'],
- lSt:['المحطات','Stations'], lWadi:['الأودية','Wadis'], lFl:['السيول التاريخية','Past floods'], lRadar:['رادار حي','Live radar'], lFsi:['قابلية السيول FSI','Susceptibility FSI'],
- lessR:['أمطار أقل','Less rain'], moreR:['أمطار أعلى','More rain'], stCol:['· لون المحطة = المعدل السنوي','· station colour = annual mean'],
+ lSt:['المحطات','Stations'], lWadi:['الأودية','Wadis'], lFl:['السيول التاريخية','Past floods'], lRadar:['رادار حي (RainViewer)','Live radar (RainViewer)'], lFsi:['قابلية السيول FSI','Susceptibility FSI'],
+ legRain:['الأمطار المتوقعة (ملم):','Forecast rainfall (mm):'], legSt:['المعدل السنوي للأمطار في المحطات (ملم):','Mean annual rainfall at gauges (mm):'], legRisk:['درجة الخطورة في المدن:','City risk level:'],
+ refH:['مبررات اختيار العوامل ومصادرها','Factor justification & references'], refSub:['كل عامل من العوامل العشرة مستخدم على نطاق واسع في دراسات قابلية السيول المنشورة. الأرقام بين الأقواس تشير لقائمة المراجع.','Each of the ten factors is widely used in published flood-susceptibility studies. Bracketed numbers refer to the reference list.'], refList:['المراجع','References'], teamH:['فريق المشروع','Project team'],
  liveMon:['رصد مباشر','Live'], wxMon:['رصد الأحوال الجوية','Weather monitor'], rainNow:['يمطر الآن في','Raining now in'],
  max7:['أعلى أمطار متوقعة خلال 7 أيام','Max forecast rain (7 days)'], prob7:['أعلى احتمال هطول (7 أيام)','Highest rain probability (7 days)'],
  riskBadge:['قابلية × توقع','Susceptibility × forecast'], riskH:['مؤشر الخطر الآن','Flood risk now'],
@@ -613,7 +639,7 @@ const EVENTS = [
  {k:'st',date:'1968-04-18',lat:21.069,lon:40.312,mm:115,ar:['الشفا والطائف — أبريل 1968','115 ملم بالشفا (TA109) و98.4 ملم بالطائف (TA206) خلال يومين متتاليين.'],en:['Al-Shafa & Taif — Apr 1968','115 mm at Al-Shafa (TA109) and 98.4 mm at Taif (TA206) on consecutive days.'],src:'MEWA TA109, TA206'}
 ];
 const flLayer = L.layerGroup().addTo(map);
-const evMarkers = EVENTS.map(e=>L.marker([e.lat,e.lon],{icon:L.divIcon({className:'',html:`<div class="fmk ${e.k==='st'?'st':''}">${e.k==='st'?'💧':'⚠️'}</div>`,iconSize:[24,24],iconAnchor:[12,12]}),zIndexOffset:500})
+const evMarkers = EVENTS.map(e=>L.marker([e.lat,e.lon],{icon:L.divIcon({className:'',html:`<div class="fmk ${e.k==='st'?'st':''}">${e.k==='st'?'💧':'⚠️'}</div>`,iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:500})
   .bindPopup(()=>{const x=e[LANG==='en'?'en':'ar']; return `<b>${x[0]}</b><br><span style="color:#7d9194">${e.date}</span><br>${x[1]}<br><span style="color:#7d9194;font-size:11px">${t('المصدر','Source')}: ${e.src}</span>`;})
   .addTo(flLayer));
 function drawTimeline(){
@@ -628,20 +654,23 @@ function drawTimeline(){
 
 // cities
 const cityMk = CITIES.map((c,i)=>L.marker([c.lat,c.lon],{icon:L.divIcon({className:'',html:'<div class="pulse"></div>',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:1000})
-    .bindTooltip(CN(c),{className:'callout',direction:MAJOR[c.en]||'top',offset:MAJOR[c.en]==='left'?[-8,0]:MAJOR[c.en]==='right'?[8,0]:MAJOR[c.en]==='bottom'?[0,8]:[0,-8],permanent:!!MAJOR[c.en]})
+    .bindTooltip(CN(c),{className:'clab',direction:MAJOR[c.en]||'right',offset:MAJOR[c.en]==='left'?[-6,0]:MAJOR[c.en]==='bottom'?[0,6]:MAJOR[c.en]==='top'?[0,-6]:[6,0],permanent:true})
+    .bindPopup(()=>cityPopup(i))
     .on('click',()=>{ selectCity(i); setMode('fc'); }).addTo(map));
 function riskOf(i){ if(!WX) return null; const mm=next24(WX[i]), s=CITIES[i].s;
   const r = mm>=30?3: mm>=15?2: mm>=5?1:0;
   const lvl = r===0?0 : r===1?(s>=4?1:0) : r===2?(s>=3?(s>=4?2:1):1) : (s>=3?2:1);
   return {mm,s,lvl}; }
+function cityPopup(i){
+  const c=CITIES[i], w=WX&&WX[i], rk=riskOf(i), LVN=[t('آمن','Safe'),t('مراقبة','Watch'),t('خطر','Danger')];
+  if(!w) return `<b>${CN(c)}</b>`;
+  return `<b>${CN(c)}</b><br>${t('الحرارة','Temp')}: <b class="num">${f(w.current.temperature_2m,1)}°</b> · ${t('الرطوبة','RH')}: <b class="num">${f(w.current.relative_humidity_2m)}%</b><br>${t('أمطار 24 ساعة','24-h rain')}: <b class="num">${f(rk.mm,1)} mm</b>${w.current.precipitation>0?' · 🌧️ '+t('يمطر الآن','raining now'):''}<br>${t('القابلية','Susceptibility')}: ${c.s}/5 · ${t('الخطورة','Risk')}: <b>${LVN[rk.lvl]}</b>`;
+}
 function updateCityMarkers(){
   cityMk.forEach((m,i)=>{
     const w=WX&&WX[i], rk=riskOf(i);
     m.setIcon(L.divIcon({className:'',html:`<div class="pulse${rk&&rk.lvl?' r'+rk.lvl:''}${i===sel?' sel':''}"></div>`,iconSize:[18,18],iconAnchor:[9,9]}));
-    if(w){ const raining=w.current.precipitation>0;
-      m.setTooltipContent(`<b>${CN(CITIES[i])}</b><br><span class="num">${f(w.current.temperature_2m,0)}°</span> · <span class="num">${f(rk.mm,1)}</span> ${t('ملم','mm')}<br><span class="m">${raining?t('يمطر الآن','Raining now'):t('حرارة · أمطار 24 س','temp · 24-h rain')}</span>`);
-      const tt=m.getTooltip(); if(tt&&tt._container) tt._container.classList.toggle('rain',rk.mm>=1);
-    } else m.setTooltipContent(`<b>${CN(CITIES[i])}</b>`);
+    m.setTooltipContent(CN(CITIES[i]));
   });
 }
 $('tiltBtn').onclick=()=>{
@@ -689,7 +718,7 @@ async function startRadar(){
 function showRadar(i){
   radarLayers.forEach((l,k)=>l.setOpacity(k===i?.75:0));
   const d=new Date(radarFrames[i].time*1000);
-  $('radarT').innerHTML=`📡 ${t('رادار','Radar')} · <span class="num">${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>`;
+  $('radarT').innerHTML=`📡 ${t('رادار الأمطار — RainViewer (شبكة رادارات طقس أرضية مجمّعة)','Precipitation radar — RainViewer (composite ground weather-radar network)')} · <span class="num">${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>`;
 }
 function stopRadar(){ clearInterval(radarTimer); radarLayers.forEach(l=>map.removeLayer(l)); radarLayers=[]; $('radarT').classList.remove('on'); }
 
@@ -701,7 +730,7 @@ const RCOL=['#d6ecfb','#b3dbf8','#8cc6f3','#5fa9ea','#3a8ade','#276cca','#2850ad
 let RGRID=null, RDAYS=null, rainMode='d0', rainLayer=null, rainMax=null, rainErr=false;
 map.createPane('rainPane'); map.getPane('rainPane').style.zIndex=390;
 const rainRenderer=L.svg({pane:'rainPane'});
-$('rLegend').innerHTML=RBREAK.map((b,i)=>`<span><i style="background:${RCOL[i]}"></i>${b}</span>`).join('')+'<span class="u">mm</span>';
+$('rLegend').innerHTML=RBREAK.map((b,i)=>`<span><i style="background:${RCOL[i]}"></i>${b}</span>`).join('');
 async function loadRainGrid(){
   rainErr=false; rainStatus(t('جارٍ تحميل خريطة الأمطار…','Loading rain map…'));
   const pts=[]; gLat.forEach((la,i)=>gLon.forEach((lo,j)=>pts.push([i,j,la,lo])));
@@ -726,7 +755,7 @@ function rainStatus(msg){
 }
 function drawRainField(){
   if(rainLayer){ map.removeLayer(rainLayer); rainLayer=null; }
-  $('rLegend').classList.toggle('on',rainMode!=='off');
+  $('rLegRow').classList.toggle('off',rainMode==='off');
   if(rainMode==='off'||!RGRID){ rainStatus(); return; }
   const nla=gLat.length, nlo=gLon.length;
   const val=(i,j)=>{ const a=RGRID[i][j]; if(!a) return 0; return rainMode==='w'? d3.sum(a) : (a[+rainMode.slice(1)]||0); };
@@ -890,11 +919,35 @@ function drawChart(){
 /* ---------- AHP list ---------- */
 const GRP_EN={'طبوغرافي':'Topographic','هيدرولوجي':'Hydrologic','مناخي':'Climatic','بيئي':'Environmental'};
 const FN = a => LANG==='en'?a.factor:a.factor_ar, GN = a => LANG==='en'?GRP_EN[a.group_ar]:a.group_ar;
+const REFS = [
+ 'Saaty, T. L. (1980). The Analytic Hierarchy Process. McGraw-Hill, New York.',
+ 'Kazakis, N., Kougias, I., & Patsialis, T. (2015). Assessment of flood hazard areas at a regional scale using an index-based approach and Analytical Hierarchy Process: Application in Rhodope–Evros region, Greece. Science of the Total Environment, 538, 555–563.',
+ 'Ouma, Y. O., & Tateishi, R. (2014). Urban flood vulnerability and risk mapping using integrated multi-parametric AHP and GIS: Methodological overview and case study assessment. Water, 6(6), 1515–1545.',
+ 'Elkhrachy, I. (2015). Flash flood hazard mapping using satellite images and GIS tools: A case study of Najran City, Kingdom of Saudi Arabia. The Egyptian Journal of Remote Sensing and Space Science, 18(2), 261–278.',
+ 'Youssef, A. M., Pradhan, B., & Sefry, S. A. (2016). Flash flood susceptibility assessment in Jeddah city (Kingdom of Saudi Arabia) using bivariate and multivariate statistical models. Environmental Earth Sciences, 75, 12.',
+ 'Tehrany, M. S., Pradhan, B., & Jebur, M. N. (2014). Flood susceptibility mapping using a novel ensemble weights-of-evidence and support vector machine models in GIS. Journal of Hydrology, 512, 332–343.',
+ 'Das, S. (2019). Geospatial mapping of flood susceptibility and hydro-geomorphic response to the floods in Ulhas basin, India. Remote Sensing Applications: Society and Environment, 14, 60–74.',
+ 'Mahmoud, S. H., & Gan, T. Y. (2018). Multi-criteria approach to develop flood susceptibility maps in arid regions of Middle East. Journal of Cleaner Production, 196, 216–229.',
+ 'Beven, K. J., & Kirkby, M. J. (1979). A physically based, variable contributing area model of basin hydrology. Hydrological Sciences Bulletin, 24(1), 43–69.',
+ 'Horton, R. E. (1945). Erosional development of streams and their drainage basins; hydrophysical approach to quantitative morphology. Geological Society of America Bulletin, 56(3), 275–370.'
+];
+const FREF = {
+ 'Elevation':{r:[2,4,7],ar:'المناطق المنخفضة تتجمع فيها المياه وتكون أكثر عرضة للغمر.',en:'Low-lying areas collect runoff and are more prone to inundation.'},
+ 'Distance to rivers':{r:[2,5,6],ar:'كلما قربت المنطقة من مجرى الوادي زاد احتمال وصول مياه السيل إليها.',en:'Areas close to wadi channels are most likely to be reached by floodwater.'},
+ 'Slope':{r:[2,3,8],ar:'الانحدار الخفيف يبطئ الجريان ويزيد تجمع المياه؛ الانحدار الشديد يسرّع الجريان.',en:'Gentle slopes slow runoff and favour ponding; steep slopes accelerate it.'},
+ 'Drainage density':{r:[4,7,10],ar:'الكثافة العالية للتصريف تعني استجابة هيدرولوجية أسرع وجرياناً سطحياً أكبر.',en:'High drainage density means faster hydrological response and more surface runoff.'},
+ 'Rainfall':{r:[2,3,8],ar:'المطر هو المحرّك المباشر للسيول؛ زيادته تزيد حجم الجريان.',en:'Rainfall is the direct trigger of floods; more rain means more runoff.'},
+ 'TWI':{r:[5,6,9],ar:'مؤشر الرطوبة الطبوغرافي يحدد المواقع التي تميل لتجمع المياه وتشبّعها.',en:'The Topographic Wetness Index identifies locations prone to water accumulation and saturation.'},
+ 'LULC':{r:[2,3,7],ar:'الأسطح العمرانية والصخرية تقلل التسرب وتزيد الجريان السطحي.',en:'Built-up and bare rock surfaces reduce infiltration and increase runoff.'},
+ 'Soil':{r:[3,4,8],ar:'نسيج التربة ونفاذيتها يتحكمان في كمية التسرب مقابل الجريان.',en:'Soil texture and permeability control infiltration versus runoff.'},
+ 'Lithology':{r:[2,5],ar:'الصخور غير المنفذة (مثل صخور الدرع العربي) تزيد الجريان السطحي.',en:'Impermeable rocks (e.g. Arabian Shield basement) increase surface runoff.'},
+ 'Curvature':{r:[5,6],ar:'الأسطح المقعرة تجمع المياه، والمحدبة تفرّقها.',en:'Concave surfaces concentrate water; convex surfaces disperse it.'}
+};
 function drawFacs(){
   $('facs').innerHTML='';
   D.ahp.slice().sort((a,b)=>b.weight_pct-a.weight_pct).forEach((a,k)=>{
     const d=document.createElement('div'); d.className='fac';
-    d.innerHTML=`<span class="r num">${k+1}</span><div><div class="nm">${FN(a)} <span class="gp">· ${GN(a)}</span></div><div class="bw"><i style="width:${a.weight_pct/14*100}%"></i></div></div><span class="w num">${f(a.weight_pct,1)}%</span>`;
+    d.innerHTML=`<span class="r num">${k+1}</span><div><div class="nm">${FN(a)} <span class="gp">· ${GN(a)}</span> <span class="rf num">[${(FREF[a.factor]||{r:[]}).r.join(',')}]</span></div><div class="bw"><i style="width:${a.weight_pct/14*100}%"></i></div></div><span class="w num">${f(a.weight_pct,1)}%</span>`;
     $('facs').append(d);
   });
 }
@@ -974,6 +1027,11 @@ function drawMethod(){
   ST.forEach(([tt,d],i)=>{const c=document.createElement('div');c.className='card step';
     c.innerHTML=`<div class="badge"><span class="n">${i+1}</span></div><div class="t">${tt[L_]}</div><div class="d">${d[L_]}</div>`;$('steps').append(c);});
   drawSens();
+  const AH=D.ahp.slice().sort((a,b)=>b.weight_pct-a.weight_pct);
+  $('refTable').innerHTML=`<tr><th>${t('العامل','Factor')}</th><th>${t('الوزن','Weight')}</th><th>${t('سبب الاختيار','Rationale')}</th><th>${t('المراجع','Refs')}</th></tr>`+
+    AH.map(a=>{const r=FREF[a.factor]||{r:[]}; return `<tr><td><b>${FN(a)}</b></td><td class="n">${f(a.weight_pct,2)}%</td><td>${LANG==='en'?r.en||'':r.ar||''}</td><td><span class="num">[${r.r.join(', ')}]</span></td></tr>`;}).join('');
+  $('refOl').innerHTML=REFS.map(x=>`<li>${x}</li>`).join('');
+  $('team').innerHTML=TEAM.map(m=>`<div><div class="r">${LANG==='en'?m.role[1]:m.role[0]}</div><div class="n">${LANG==='en'?m.name[1]:m.name[0]}</div></div>`).join('');
   const cls=s=>s==='مكتمل'?'done':s==='لم يبدأ'?'no':'prog';
   $('ptab').innerHTML=D.progress.map(p=>`<tr><td>${LANG==='en'?PROG_EN[p.component]||p.component:p.component}</td><td><span class="st ${cls(p.status)}">${LANG==='en'?STAT_EN[p.status]:p.status}</span></td><td style="color:var(--ink2)">${LANG==='en'?(NOTE_EN[p.note]??p.note):p.note||''}</td></tr>`).join('');
 }
@@ -1030,16 +1088,17 @@ $('printBtn').onclick=()=>{
 
 /* ---------- language ---------- */
 $('langBtn').onclick=()=>{ LANG = LANG==='en'?'ar':'en'; try{localStorage.setItem('rasd_lang',LANG);}catch(e){} rerenderAll(); };
+function drawCredit(){ $('credit').innerHTML=t('مشروع تخرج — قسم جيولوجيا المياه، كلية التعدين، جامعة الملك عبدالعزيز','Graduation project — Hydrogeology, Faculty of Mining, King Abdulaziz University')+'<br>'+TEAM.map(m=>LANG==='en'?m.name[1]:m.name[0]).join(' · '); }
 function rerenderAll(){
-  map.closePopup(); applyStatic(); fsiTitle(); fillCitySel(); fillStSel(); drawFacs(); drawTimeline(); renderLive(); rainStatus(); drawChart();
-  cityMk.forEach((m,i)=>{ if(!WX) m.setTooltipContent(`<b>${CN(CITIES[i])}</b>`); });
+  map.closePopup(); drawCredit(); applyStatic(); fsiTitle(); fillCitySel(); fillStSel(); drawFacs(); drawTimeline(); renderLive(); rainStatus(); drawChart();
+  cityMk.forEach((m,i)=>m.setTooltipContent(CN(CITIES[i])));
   wadiLayer.eachLayer(l=>{ const w=WADIS[wadiLayer.getLayers().indexOf(l)]; l.setTooltipContent(LANG==='en'?w.en:w.ar); });
   if(curPage==='rain') drawRain(); if(curPage==='method') drawMethod();
   setTimeout(()=>map.invalidateSize(),50);
 }
 
 /* ---------- init ---------- */
-applyStatic(); fsiTitle(); fillCitySel(); fillStSel(); drawFacs(); drawTimeline(); drawGauge(null); setMode('hist'); renderRisk(); loadWX();
+drawCredit(); applyStatic(); fsiTitle(); fillCitySel(); fillStSel(); drawFacs(); drawTimeline(); drawGauge(null); setMode('hist'); renderRisk(); loadWX();
 setInterval(loadWX, 15*60*1000);
 loadRainGrid(); setInterval(loadRainGrid, 3*60*60*1000);
 let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{drawChart(); if(curPage==='rain')drawRain();},200);});
